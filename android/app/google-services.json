@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1017238286394",
+    "project_id": "cheque-manager-cf7c3",
+    "storage_bucket": "cheque-manager-cf7c3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1017238286394:android:7888044adc51a2c91d0503",
+        "android_client_info": {
+          "package_name": "com.example.checkqueue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBD-n16RspJ659Dho-_XYrKGCnxcOEg_44"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1017238286394:android:81c62f02cf678e061d0503",
+        "android_client_info": {
+          "package_name": "com.example.cheque_manager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBD-n16RspJ659Dho-_XYrKGCnxcOEg_44"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
