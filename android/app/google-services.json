@@ -12,7 +12,12 @@
           "package_name": "com.example.checkqueue"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1017238286394-ak23hireq3ugvsmmopga11e82d37bqb2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBD-n16RspJ659Dho-_XYrKGCnxcOEg_44"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1017238286394-ak23hireq3ugvsmmopga11e82d37bqb2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1017238286394-f7f2br066neen8s42nu6td01n5k8cg3n.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.checkqueue"
+              }
+            }
+          ]
         }
       }
     },
@@ -31,7 +48,20 @@
           "package_name": "com.example.cheque_manager"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1017238286394-shs5jj9jq0u169om500of345vjv66ji4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.cheque_manager",
+            "certificate_hash": "b5b362ff9416054b1f5e5db82bac731a541a1721"
+          }
+        },
+        {
+          "client_id": "1017238286394-ak23hireq3ugvsmmopga11e82d37bqb2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBD-n16RspJ659Dho-_XYrKGCnxcOEg_44"
@@ -39,7 +69,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1017238286394-ak23hireq3ugvsmmopga11e82d37bqb2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1017238286394-f7f2br066neen8s42nu6td01n5k8cg3n.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.checkqueue"
+              }
+            }
+          ]
         }
       }
     }
