@@ -6,6 +6,8 @@ import '../models/party.dart';
 import '../models/app_error.dart';
 import '../services/cheque_service.dart';
 import '../services/party_service.dart';
+import '../services/notification_service.dart';
+
 
 class ChequeController extends ChangeNotifier {
   final ChequeService _chequeService = ChequeService();
@@ -167,7 +169,24 @@ class ChequeController extends ChangeNotifier {
         }
 
         final newStatus = _calculateStatus(c.dueDate, cashed: false);
-        if (newStatus != c.status) {
+
+        // If it just became "near" and no notification yet -> notify
+        if (newStatus == ChequeStatus.near && !c.notificationSent) {
+          final partyName = partyNameFor(c.partyId);
+          await NotificationService.instance.showChequeReminder(
+            cheque: c,
+            partyName: partyName,
+          );
+
+          await _chequeService.markNotificationSent(c.id);
+
+          updated.add(
+            c.copyWith(
+              status: newStatus,
+              notificationSent: true,
+            ),
+          );
+        } else if (newStatus != c.status) {
           await _chequeService.updateChequeStatus(
             chequeId: c.id,
             status: newStatus,
@@ -187,6 +206,7 @@ class ChequeController extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
 
   Future<void> markAsCashed(String chequeId) async {
     try {

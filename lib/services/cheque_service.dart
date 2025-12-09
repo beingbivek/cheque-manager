@@ -45,6 +45,19 @@ class ChequeService {
     }
   }
 
+  Future<void> markNotificationSent(String chequeId) async {
+    try {
+      await _collection.doc(chequeId).update({'notificationSent': true});
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update notification flag.',
+        original: e,
+      );
+    }
+  }
+
+
   Future<void> updateChequeStatus({
     required String chequeId,
     required ChequeStatus status,

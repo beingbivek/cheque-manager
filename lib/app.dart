@@ -1,4 +1,3 @@
-// lib/app.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +6,7 @@ import 'controllers/cheque_controller.dart';
 import 'routes/app_routes.dart';
 import 'views/auth/splash_view.dart';
 import 'views/common/error_404_view.dart';
+import 'services/navigation_service.dart';
 
 class ChequeApp extends StatelessWidget {
   const ChequeApp({super.key});
@@ -28,6 +28,8 @@ class ChequeApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Cheque Reminder',
         debugShowCheckedModeBanner: false,
+        navigatorKey: NavigationService
+            .navigatorKey, // 👈 IMPORTANT for navigation from notifications
         initialRoute: AppRoutes.splash,
         onGenerateRoute: AppRoutes.generateRoute,
         onUnknownRoute: (_) =>
