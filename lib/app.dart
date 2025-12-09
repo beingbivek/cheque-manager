@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'controllers/auth_controller.dart';
+import 'controllers/cheque_controller.dart';
 import 'routes/app_routes.dart';
+import 'views/auth/splash_view.dart';
 import 'views/common/error_404_view.dart';
 
 class ChequeApp extends StatelessWidget {
@@ -14,7 +16,14 @@ class ChequeApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthController()),
-        // Add other controllers later (ChequeController, SubscriptionController, etc.)
+        ChangeNotifierProxyProvider<AuthController, ChequeController>(
+          create: (_) => ChequeController(),
+          update: (_, auth, chequeController) {
+            chequeController ??= ChequeController();
+            chequeController.setUser(auth.currentUser);
+            return chequeController;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Cheque Reminder',

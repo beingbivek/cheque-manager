@@ -1,4 +1,3 @@
-// lib/models/cheque.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum ChequeStatus { valid, near, expired, cashed }
@@ -28,17 +27,43 @@ class Cheque {
     required this.createdAt,
   });
 
+  Cheque copyWith({
+    String? id,
+    String? userId,
+    String? partyId,
+    String? chequeNumber,
+    double? amount,
+    DateTime? issueDate,
+    DateTime? dueDate,
+    ChequeStatus? status,
+    bool? notificationSent,
+    DateTime? createdAt,
+  }) {
+    return Cheque(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      partyId: partyId ?? this.partyId,
+      chequeNumber: chequeNumber ?? this.chequeNumber,
+      amount: amount ?? this.amount,
+      issueDate: issueDate ?? this.issueDate,
+      dueDate: dueDate ?? this.dueDate,
+      status: status ?? this.status,
+      notificationSent: notificationSent ?? this.notificationSent,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   factory Cheque.fromMap(String id, Map<String, dynamic> data) {
     return Cheque(
       id: id,
-      userId: data['userId'],
-      partyId: data['partyId'],
-      chequeNumber: data['chequeNumber'],
+      userId: data['userId'] as String,
+      partyId: data['partyId'] as String,
+      chequeNumber: data['chequeNumber'] as String,
       amount: (data['amount'] as num).toDouble(),
       issueDate: (data['issueDate'] as Timestamp).toDate(),
       dueDate: (data['dueDate'] as Timestamp).toDate(),
-      status: _statusFromString(data['status'] ?? 'valid'),
-      notificationSent: data['notificationSent'] ?? false,
+      status: _statusFromString(data['status'] as String? ?? 'valid'),
+      notificationSent: data['notificationSent'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }

@@ -1,4 +1,3 @@
-// lib/models/party.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Party {
@@ -21,10 +20,10 @@ class Party {
   factory Party.fromMap(String id, Map<String, dynamic> data) {
     return Party(
       id: id,
-      userId: data['userId'],
-      name: data['name'],
-      phone: data['phone'],
-      notes: data['notes'],
+      userId: data['userId'] as String,
+      name: data['name'] as String,
+      phone: data['phone'] as String?,
+      notes: data['notes'] as String?,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }
