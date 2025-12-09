@@ -1,10 +1,7 @@
 // lib/routes/app_routes.dart
 import 'package:flutter/material.dart';
 
-import '../views/auth/splash_view.dart';
 import '../views/auth/login_view.dart';
-import '../views/user/user_dashboard_view.dart';
-import '../views/admin/admin_dashboard_view.dart';
 import '../views/common/error_404_view.dart';
 
 class AppRoutes {

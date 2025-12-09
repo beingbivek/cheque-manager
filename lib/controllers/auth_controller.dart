@@ -23,9 +23,12 @@ class AuthController extends ChangeNotifier {
       if (firebaseUser == null) {
         _currentUser = null;
       } else {
-        // Refresh user from Firestore
-        _currentUser = await _authService
-            .createOrGetUser(firebaseUser); // could expose properly
+        try {
+          _currentUser = await _authService.createOrGetUser(firebaseUser);
+          _lastError = null;
+        } on AppError catch (e) {
+          _lastError = e;
+        }
       }
       notifyListeners();
     });

@@ -12,25 +12,42 @@ class AuthService {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // lib/services/auth_service.dart
   Future<AppUser> createOrGetUser(User firebaseUser) async {
-    final doc = _db.collection('users').doc(firebaseUser.uid);
-    final snapshot = await doc.get();
+    try {
+      final doc = _db.collection('users').doc(firebaseUser.uid);
+      final snapshot = await doc.get();
 
-    if (!snapshot.exists) {
-      final newUser = AppUser(
-        uid: firebaseUser.uid,
-        email: firebaseUser.email ?? '',
-        displayName: firebaseUser.displayName,
-        role: 'user',
-        plan: 'free',
-        createdAt: DateTime.now(),
+      if (!snapshot.exists) {
+        final newUser = AppUser(
+          uid: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          displayName: firebaseUser.displayName,
+          role: 'user',
+          plan: 'free',
+          createdAt: DateTime.now(),
+        );
+        await doc.set(newUser.toMap());
+        return newUser;
+      } else {
+        return AppUser.fromMap(snapshot.id, snapshot.data()!);
+      }
+    } on FirebaseException catch (e) {
+      // Firestore-specific error -> wrap in AppError with a clear code
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',  // e.g. FIRESTORE_PERMISSION-DENIED
+        message: 'Database error: ${e.message ?? 'Unable to access data.'}',
+        original: e,
       );
-      await doc.set(newUser.toMap());
-      return newUser;
-    } else {
-      return AppUser.fromMap(snapshot.id, snapshot.data()!);
+    } catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_UNKNOWN',
+        message: 'Unknown database error occurred.',
+        original: e,
+      );
     }
   }
+
 
   Future<AppUser> registerWithEmail(String email, String password) async {
     try {
@@ -39,7 +56,7 @@ class AuthService {
         password: password,
       );
       final user = credential.user!;
-      return createOrGetUser(user);
+      return await createOrGetUser(user);
     } on FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_REG_${e.code.toUpperCase()}',
@@ -62,7 +79,7 @@ class AuthService {
         password: password,
       );
       final user = credential.user!;
-      return createOrGetUser(user);
+      return await createOrGetUser(user);
     } on FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_LOGIN_${e.code.toUpperCase()}',
@@ -98,7 +115,7 @@ class AuthService {
 
       final result = await _auth.signInWithCredential(credential);
       final user = result.user!;
-      return createOrGetUser(user);
+      return await createOrGetUser(user);
     } on FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_GOOGLE_${e.code.toUpperCase()}',

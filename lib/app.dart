@@ -4,10 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'controllers/auth_controller.dart';
 import 'routes/app_routes.dart';
-import 'views/auth/splash_view.dart';
 import 'views/common/error_404_view.dart';
-import 'views/user/user_dashboard_view.dart';
-import 'views/admin/admin_dashboard_view.dart';
 
 class ChequeApp extends StatelessWidget {
   const ChequeApp({super.key});
