@@ -1,4 +1,5 @@
 // lib/controllers/auth_controller.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
@@ -32,6 +33,21 @@ class AuthController extends ChangeNotifier {
       }
       notifyListeners();
     });
+  }
+
+  Future<void> reloadUserFromFirestore() async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      _currentUser = await _authService.createOrGetUser(firebaseUser);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loginWithEmail(String email, String password) async {
