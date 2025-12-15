@@ -1,3 +1,4 @@
+import 'upgrade_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -42,6 +43,7 @@ class _ChequeListViewState extends State<ChequeListView> {
         ),
         body: Column(
           children: [
+            const UpgradeBanner(),
             if (controller.lastError != null)
               _ErrorBanner(error: controller.lastError!),
             Padding(
