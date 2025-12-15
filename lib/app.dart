@@ -7,6 +7,7 @@ import 'routes/app_routes.dart';
 import 'views/auth/splash_view.dart';
 import 'views/common/error_404_view.dart';
 import 'services/navigation_service.dart';
+import 'controllers/subscription_controller.dart';
 
 class ChequeApp extends StatelessWidget {
   const ChequeApp({super.key});
@@ -16,6 +17,7 @@ class ChequeApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthController()),
+        ChangeNotifierProvider(create: (_) => SubscriptionController()),
         ChangeNotifierProxyProvider<AuthController, ChequeController>(
           create: (_) => ChequeController(),
           update: (_, auth, chequeController) {
