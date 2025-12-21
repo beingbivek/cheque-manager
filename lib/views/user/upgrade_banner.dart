@@ -60,7 +60,7 @@ class UpgradeBanner extends StatelessWidget {
     final sub = context.read<SubscriptionController>();
 
     final config = PaymentConfig(
-      amount: 500, // Khalti uses paisa -> Rs 500 = 50000
+      amount: 1, // Khalti uses paisa -> Rs 500 = 50000
       productIdentity: 'pro_subscription_${user.uid}',
       productName: 'Cheque Manager Pro (1 Month)',
     );

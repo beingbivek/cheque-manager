@@ -1,3 +1,4 @@
+import 'package:cheque_manager/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -16,7 +17,7 @@ Future<void> main() async {
 
   runApp(
     KhaltiScope(
-      publicKey: "YOUR_KHALTI_PUBLIC_KEY",
+      publicKey: AppConstants.khaltiPublicKey,
       builder: (context, navKey) {
         return const ChequeApp();
       },
