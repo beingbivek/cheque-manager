@@ -8,6 +8,9 @@ import 'views/auth/splash_view.dart';
 import 'views/common/error_404_view.dart';
 import 'services/navigation_service.dart';
 import 'controllers/subscription_controller.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:khalti_flutter/khalti_flutter.dart';
+
 
 class ChequeApp extends StatelessWidget {
   const ChequeApp({super.key});
@@ -28,10 +31,20 @@ class ChequeApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Cheque Reminder',
+        title: 'Cheque Manager',
         debugShowCheckedModeBanner: false,
         navigatorKey: NavigationService
             .navigatorKey, // 👈 IMPORTANT for navigation from notifications
+        localizationsDelegates: const [
+          KhaltiLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('en'),
+          Locale('ne'), // optional (Nepali)
+        ],
         initialRoute: AppRoutes.splash,
         onGenerateRoute: AppRoutes.generateRoute,
         onUnknownRoute: (_) =>
