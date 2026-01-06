@@ -25,7 +25,7 @@ class AuthService {
           displayName: firebaseUser.displayName,
           role: 'user',
           plan: 'free',
-          createdAt: DateTime.now(),
+          planExpiry: DateTime.now()
         );
         await doc.set(newUser.toMap());
         return newUser;

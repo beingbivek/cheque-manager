@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../../controllers/auth_controller.dart';
 import '../../controllers/subscription_controller.dart';
+import '../../models/app_error.dart';
 import '../../models/app_user.dart';
+import '../../services/khalti_verify_service.dart';
 
 class UpgradeBanner extends StatelessWidget {
   const UpgradeBanner({super.key});
@@ -65,42 +67,57 @@ class UpgradeBanner extends StatelessWidget {
       productName: 'Cheque Manager Pro (1 Month)',
     );
 
-    KhaltiScope.of(context).pay(
-      config: config,
-      preferences: const [
-        PaymentPreference.khalti,
-        PaymentPreference.connectIPS,
-        PaymentPreference.eBanking,
-        PaymentPreference.mobileBanking,
-      ],
-      onSuccess: (success) async {
-        await sub.upgradeUserToPro(
-          userId: user.uid,
-          khaltiToken: success.token,
-          khaltiAmountPaisa: success.amount,
-        );
+    try {
+      KhaltiScope.of(context).pay(
+            config: config,
+            preferences: const [
+              PaymentPreference.khalti,
+              PaymentPreference.connectIPS,
+              PaymentPreference.eBanking,
+              PaymentPreference.mobileBanking,
+            ],
+            onSuccess: (success) async {
+              try {
+                // 1) verify payment + upgrade on server
+                await KhaltiVerifyService().verifyAndUpgrade(
+                  token: success.token,
+                  amountPaisa: success.amount,
+                );
 
-        // After upgrade success, auth user model may still show free until reloaded.
-        // We'll refresh by forcing a sign-in state reload later; for now show snack.
-        if (sub.lastError == null && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Upgraded to Pro successfully!')),
+                // 2) refresh user (so UI becomes pro immediately)
+                await context.read<AuthController>().reloadUserFromFirestore();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Upgraded to Pro successfully!')),
+                  );
+                }
+              } catch (e) {
+                final msg = (e is AppError)
+                    ? '${e.message} (Code: ${e.code})'
+                    : 'Upgrade failed: $e';
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                }
+              }
+            },
+
+            onFailure: (fail) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Payment failed: ${fail.message}')),
+              );
+            },
+            onCancel: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Payment cancelled')),
+              );
+            },
           );
-        }
-
-        await context.read<AuthController>().reloadUserFromFirestore();
-
-      },
-      onFailure: (fail) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment failed: ${fail.message}')),
-        );
-      },
-      onCancel: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment cancelled')),
-        );
-      },
-    );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Khalti error: $e')),
+      );
+      print(e);
+    };
   }
 }

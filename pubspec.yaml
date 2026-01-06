@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
 
@@ -42,6 +44,9 @@ dependencies:
 
   # Firestore for cheques data
   cloud_firestore: ^5.4.4
+
+  # CLoud Functions Firebase
+  cloud_functions: ^5.0.0
 
   # Notifications
   firebase_messaging: ^15.1.0   # push notifications:contentReference[oaicite:1]{index=1}
@@ -106,3 +111,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dependency_overrides:
+  khalti_flutter:
+    path: packages/khalti_flutter_3_fixed
+
+  win32:
+    path: packages/win32_fixed

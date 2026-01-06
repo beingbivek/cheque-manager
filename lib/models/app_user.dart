@@ -1,14 +1,12 @@
-// lib/models/app_user.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AppUser {
   final String uid;
   final String email;
   final String? displayName;
-  final String role;        // 'admin' or 'user'
-  final String plan;        // 'free' or 'pro'
-  final DateTime? planExpiry; // null for free or life-time
-  final DateTime createdAt;
+  final String role;
+  final String plan; // free/pro
+  final DateTime? planExpiry;
 
   AppUser({
     required this.uid,
@@ -16,21 +14,27 @@ class AppUser {
     this.displayName,
     required this.role,
     required this.plan,
-    this.planExpiry,
-    required this.createdAt,
+    required this.planExpiry,
   });
 
+  bool get isPro {
+    if (plan != 'pro') return false;
+    if (planExpiry == null) return true; // if you allow lifetime pro later
+    return planExpiry!.isAfter(DateTime.now());
+  }
+
   factory AppUser.fromMap(String id, Map<String, dynamic> data) {
+    DateTime? expiry;
+    final raw = data['planExpiry'];
+    if (raw is Timestamp) expiry = raw.toDate();
+
     return AppUser(
       uid: id,
       email: data['email'] ?? '',
       displayName: data['displayName'],
       role: data['role'] ?? 'user',
       plan: data['plan'] ?? 'free',
-      planExpiry: data['planExpiry'] != null
-          ? (data['planExpiry'] as Timestamp).toDate()
-          : null,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      planExpiry: expiry,
     );
   }
 
@@ -41,9 +45,6 @@ class AppUser {
       'role': role,
       'plan': plan,
       'planExpiry': planExpiry,
-      'createdAt': createdAt,
     };
   }
-
-  bool get isPro => plan == 'pro' && (planExpiry == null || planExpiry!.isAfter(DateTime.now()));
 }
