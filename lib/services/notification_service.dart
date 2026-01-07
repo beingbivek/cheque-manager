@@ -31,10 +31,16 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         final payload = response.payload;
-        if (payload != null && payload.startsWith('cheque:')) {
-          final chequeId = payload.substring('cheque:'.length);
-          _handleNotificationTap(chequeId);
+        if (payload == null) return;
+
+        final parts = Uri.splitQueryString(payload.replaceFirst('route=', 'route=/'));
+        final route = parts['route'];
+        final id = parts['id'];
+
+        if (route == AppRoutes.chequeDetails && id != null) {
+          _handleNotificationTap(id);
         }
+
       },
     );
 
@@ -90,7 +96,7 @@ class NotificationService {
       'Cheque due soon: $partyName',
       'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is near due date.',
       details,
-      payload: 'cheque:${cheque.id}',
+      payload: 'route=/chequeDetails&id=${cheque.id}',
     );
   }
 }
