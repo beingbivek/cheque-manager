@@ -7,6 +7,8 @@ import '../../controllers/subscription_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/app_user.dart';
 import '../../services/khalti_verify_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class UpgradeBanner extends StatelessWidget {
   const UpgradeBanner({super.key});
@@ -62,7 +64,7 @@ class UpgradeBanner extends StatelessWidget {
     final sub = context.read<SubscriptionController>();
 
     final config = PaymentConfig(
-      amount: 1, // Khalti uses paisa -> Rs 500 = 50000
+      amount: 50000, // Khalti uses paisa -> Rs 500 = 50000
       productIdentity: 'pro_subscription_${user.uid}',
       productName: 'Cheque Manager Pro (1 Month)',
     );
@@ -83,6 +85,15 @@ class UpgradeBanner extends StatelessWidget {
                   token: success.token,
                   amountPaisa: success.amount,
                 );
+
+                final expiry = DateTime.now().add(const Duration(days: 30));
+
+                await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+                  'plan': 'pro',
+                  'planExpiry': Timestamp.fromDate(expiry),
+                  'updatedAt': Timestamp.now(),
+                });
+
 
                 // 2) refresh user (so UI becomes pro immediately)
                 await context.read<AuthController>().reloadUserFromFirestore();
