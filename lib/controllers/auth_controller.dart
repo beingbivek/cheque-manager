@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
 import '../models/app_error.dart';
+import '../utils/error_mapper.dart';
 import '../services/auth_service.dart';
 
 class AuthController extends ChangeNotifier {
@@ -28,7 +29,7 @@ class AuthController extends ChangeNotifier {
           _currentUser = await _authService.createOrGetUser(firebaseUser);
           _lastError = null;
         } on AppError catch (e) {
-          _lastError = e;
+          _lastError = ErrorMapper.toAppError(e, fallbackCode: 'USER_ERROR');
         }
       }
       notifyListeners();
@@ -44,6 +45,8 @@ class AuthController extends ChangeNotifier {
 
     try {
       _currentUser = await _authService.createOrGetUser(firebaseUser);
+    } catch (e) {
+      _lastError = ErrorMapper.toAppError(e, fallbackCode: 'RELOADING_USER_ERROR');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -51,16 +54,20 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> loginWithEmail(String email, String password) async {
-    _setLoading(true);
+    _isLoading = true;
+    _lastError = null;
+    notifyListeners();
+
     try {
-      _lastError = null;
       _currentUser = await _authService.loginWithEmail(email, password);
-    } on AppError catch (e) {
-      _lastError = e;
+    } catch (e) {
+      _lastError = ErrorMapper.toAppError(e, fallbackCode: 'AUTH_LOGIN_UNKNOWN');
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
+
 
   Future<void> registerWithEmail(String email, String password) async {
     _setLoading(true);
@@ -68,7 +75,7 @@ class AuthController extends ChangeNotifier {
       _lastError = null;
       _currentUser = await _authService.registerWithEmail(email, password);
     } on AppError catch (e) {
-      _lastError = e;
+      _lastError = ErrorMapper.toAppError(e, fallbackCode: 'REGISTRATION_ERROR');
     } finally {
       _setLoading(false);
     }
@@ -80,7 +87,7 @@ class AuthController extends ChangeNotifier {
       _lastError = null;
       _currentUser = await _authService.signInWithGoogle();
     } on AppError catch (e) {
-      _lastError = e;
+      _lastError = ErrorMapper.toAppError(e, fallbackCode: 'GOOGLE_LOGIN_UNKNOWN');
     } finally {
       _setLoading(false);
     }
