@@ -17,7 +17,7 @@ exports.verifyKhaltiAndUpgrade = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "token and amount are required.");
   }
 
-  const EXPECTED_AMOUNT = 100; // Rs 1
+  const EXPECTED_AMOUNT = 50000; // Rs 500
   if (amount !== EXPECTED_AMOUNT) {
     throw new HttpsError("failed-precondition", "Amount mismatch.");
   }
