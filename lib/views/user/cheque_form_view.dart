@@ -18,8 +18,7 @@ class _ChequeFormViewState extends State<ChequeFormView> {
   final _chequeNumberCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
 
-  DateTime? _issueDate;
-  DateTime? _dueDate;
+  DateTime? _chequeDate;
 
   bool _submitting = false;
   AppError? _localError;
@@ -32,29 +31,16 @@ class _ChequeFormViewState extends State<ChequeFormView> {
     super.dispose();
   }
 
-  Future<void> _pickIssueDate() async {
+  Future<void> _pickChequeDate() async {
     final today = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _issueDate ?? today,
+      initialDate: _chequeDate ?? today,
       firstDate: DateTime(today.year - 5),
       lastDate: DateTime(today.year + 5),
     );
     if (picked != null) {
-      setState(() => _issueDate = picked);
-    }
-  }
-
-  Future<void> _pickDueDate() async {
-    final today = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dueDate ?? today,
-      firstDate: DateTime(today.year - 5),
-      lastDate: DateTime(today.year + 5),
-    );
-    if (picked != null) {
-      setState(() => _dueDate = picked);
+      setState(() => _chequeDate = picked);
     }
   }
 
@@ -63,21 +49,11 @@ class _ChequeFormViewState extends State<ChequeFormView> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    if (_issueDate == null || _dueDate == null) {
+    if (_chequeDate == null) {
       setState(() {
         _localError = AppError(
           code: 'FORM_DATE_MISSING',
-          message: 'Please select both issue date and due date.',
-        );
-      });
-      return;
-    }
-
-    if (_dueDate!.isBefore(_issueDate!)) {
-      setState(() {
-        _localError = AppError(
-          code: 'FORM_DATE_INVALID',
-          message: 'Due date cannot be before issue date.',
+          message: 'Please select the cheque date.',
         );
       });
       return;
@@ -105,8 +81,7 @@ class _ChequeFormViewState extends State<ChequeFormView> {
         partyName: _partyCtrl.text.trim(),
         chequeNumber: _chequeNumberCtrl.text.trim(),
         amount: amount,
-        issueDate: _issueDate!,
-        dueDate: _dueDate!,
+        date: _chequeDate!,
       );
 
       if (controller.lastError == null) {
@@ -191,42 +166,15 @@ class _ChequeFormViewState extends State<ChequeFormView> {
                     v == null || v.trim().isEmpty ? 'Enter amount' : null,
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Issue Date'),
-                          subtitle: Text(
-                            _issueDate == null
-                                ? 'Select date'
-                                : _issueDate!
-                                .toLocal()
-                                .toString()
-                                .split(' ')
-                                .first,
-                          ),
-                          onTap: _pickIssueDate,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Due Date'),
-                          subtitle: Text(
-                            _dueDate == null
-                                ? 'Select date'
-                                : _dueDate!
-                                .toLocal()
-                                .toString()
-                                .split(' ')
-                                .first,
-                          ),
-                          onTap: _pickDueDate,
-                        ),
-                      ),
-                    ],
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Cheque Date'),
+                    subtitle: Text(
+                      _chequeDate == null
+                          ? 'Select date'
+                          : _chequeDate!.toLocal().toString().split(' ').first,
+                    ),
+                    onTap: _pickChequeDate,
                   ),
                   const SizedBox(height: 24),
                   SizedBox(

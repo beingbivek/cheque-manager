@@ -8,39 +8,39 @@ class Cheque {
   final String id;
   final String userId;
   final String partyId;
+  final String partyName;
   final String chequeNumber;
   final double amount;
-  final DateTime issueDate;
-  final DateTime dueDate;
+  final DateTime date;
   final ChequeStatus status;
   final ChequeSettlementStatus settlementStatus;
   final bool notificationSent;
   final DateTime createdAt;
-  final DateTime? updatedAt;
+  final DateTime updatedAt;
 
   Cheque({
     required this.id,
     required this.userId,
     required this.partyId,
+    required this.partyName,
     required this.chequeNumber,
     required this.amount,
-    required this.issueDate,
-    required this.dueDate,
+    required this.date,
     required this.status,
     this.settlementStatus = ChequeSettlementStatus.pending,
     this.notificationSent = false,
     required this.createdAt,
-    this.updatedAt,
+    required this.updatedAt,
   });
 
   Cheque copyWith({
     String? id,
     String? userId,
     String? partyId,
+    String? partyName,
     String? chequeNumber,
     double? amount,
-    DateTime? issueDate,
-    DateTime? dueDate,
+    DateTime? date,
     ChequeStatus? status,
     ChequeSettlementStatus? settlementStatus,
     bool? notificationSent,
@@ -51,10 +51,10 @@ class Cheque {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       partyId: partyId ?? this.partyId,
+      partyName: partyName ?? this.partyName,
       chequeNumber: chequeNumber ?? this.chequeNumber,
       amount: amount ?? this.amount,
-      issueDate: issueDate ?? this.issueDate,
-      dueDate: dueDate ?? this.dueDate,
+      date: date ?? this.date,
       status: status ?? this.status,
       settlementStatus: settlementStatus ?? this.settlementStatus,
       notificationSent: notificationSent ?? this.notificationSent,
@@ -64,20 +64,25 @@ class Cheque {
   }
 
   factory Cheque.fromMap(String id, Map<String, dynamic> data) {
+    final createdAt = (data['createdAt'] as Timestamp).toDate();
+    final date = data['date'] as Timestamp? ??
+        data['dueDate'] as Timestamp? ??
+        data['issueDate'] as Timestamp?;
+
     return Cheque(
       id: id,
       userId: data['userId'] as String,
       partyId: data['partyId'] as String,
+      partyName: data['partyName'] as String? ?? '',
       chequeNumber: data['chequeNumber'] as String,
       amount: (data['amount'] as num).toDouble(),
-      issueDate: (data['issueDate'] as Timestamp).toDate(),
-      dueDate: (data['dueDate'] as Timestamp).toDate(),
+      date: (date ?? Timestamp.fromDate(createdAt)).toDate(),
       status: _statusFromString(data['status'] as String? ?? 'valid'),
       settlementStatus:
           _settlementStatusFromString(data['settlementStatus'] as String? ?? 'pending'),
       notificationSent: data['notificationSent'] as bool? ?? false,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      createdAt: createdAt,
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? createdAt,
     );
   }
 
@@ -85,16 +90,30 @@ class Cheque {
     return {
       'userId': userId,
       'partyId': partyId,
+      'partyName': partyName,
       'chequeNumber': chequeNumber,
       'amount': amount,
-      'issueDate': issueDate,
-      'dueDate': dueDate,
+      'date': date,
       'status': status.name,
       'settlementStatus': settlementStatus.name,
       'notificationSent': notificationSent,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
+  }
+
+  bool isNear({
+    required int thresholdDays,
+    DateTime? referenceDate,
+  }) {
+    if (status == ChequeStatus.cashed) return false;
+    final now = referenceDate ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final chequeDate = DateTime(date.year, date.month, date.day);
+    if (chequeDate.isBefore(today)) return false;
+
+    final diff = chequeDate.difference(today).inDays;
+    return diff <= thresholdDays;
   }
 
   static ChequeStatus _statusFromString(String value) {

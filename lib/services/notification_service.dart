@@ -94,7 +94,7 @@ class NotificationService {
     await _plugin.show(
       cheque.hashCode, // id (any int)
       'Cheque due soon: $partyName',
-      'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is near due date.',
+      'Cheque of Rs ${cheque.amount.toStringAsFixed(2)} is near ${cheque.date.toLocal().toString().split(' ').first}.',
       details,
       payload: 'route=/chequeDetails&id=${cheque.id}',
     );

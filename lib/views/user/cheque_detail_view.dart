@@ -15,7 +15,7 @@ class ChequeDetailView extends StatelessWidget {
     final cheque = controller.cheques
         .firstWhere((c) => c.id == chequeId, orElse: () => _dummyCheque());
 
-    final partyName = controller.partyNameFor(cheque.partyId);
+    final partyName = controller.displayPartyName(cheque);
 
     return Scaffold(
       appBar: AppBar(
@@ -38,9 +38,7 @@ class ChequeDetailView extends StatelessWidget {
             Text('Cheque No: ${cheque.chequeNumber}'),
             Text('Amount: Rs ${cheque.amount.toStringAsFixed(2)}'),
             Text(
-                'Issue Date: ${cheque.issueDate.toLocal().toString().split(' ').first}'),
-            Text(
-                'Due Date: ${cheque.dueDate.toLocal().toString().split(' ').first}'),
+                'Date: ${cheque.date.toLocal().toString().split(' ').first}'),
             Text('Status: ${cheque.status.name}'),
             const SizedBox(height: 16),
             if (cheque.status != ChequeStatus.cashed)
@@ -63,12 +61,13 @@ class ChequeDetailView extends StatelessWidget {
       id: '',
       userId: '',
       partyId: '',
+      partyName: '',
       chequeNumber: '',
       amount: 0,
-      issueDate: now,
-      dueDate: now,
+      date: now,
       status: ChequeStatus.valid,
       createdAt: now,
+      updatedAt: now,
     );
   }
 }

@@ -14,6 +14,7 @@ class ChequeController extends ChangeNotifier {
   final PartyService _partyService = PartyService();
   final UserService _userService = UserService();
 
+  int _nearThresholdDays = 3;
   User? _user;
   List<Cheque> _cheques = [];
   List<Party> _parties = [];
@@ -34,22 +35,22 @@ class ChequeController extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   AppError? get lastError => _lastError;
+  int get nearThresholdDays => _nearThresholdDays;
 
   List<Cheque> get cheques => _cheques;
   List<Party> get parties => _parties;
 
   // Filtered lists
   List<Cheque> get chequesCashed =>
-      _cheques.where((c) => c.status == ChequeStatus.cashed).toList();
+      _sectionedCheques()[ChequeStatus.cashed]!;
 
-  List<Cheque> get chequesNear =>
-      _cheques.where((c) => c.status == ChequeStatus.near).toList();
+  List<Cheque> get chequesNear => _sectionedCheques()[ChequeStatus.near]!;
 
-  List<Cheque> get chequesValid =>
-      _cheques.where((c) => c.status == ChequeStatus.valid).toList();
+  List<Cheque> get chequesValid => _sectionedCheques()[ChequeStatus.valid]!;
 
-  List<Cheque> get chequesExpired =>
-      _cheques.where((c) => c.status == ChequeStatus.expired).toList();
+  List<Cheque> get chequesExpired => _sectionedCheques()[ChequeStatus.expired]!;
+
+  Map<ChequeStatus, List<Cheque>> get chequeSections => _sectionedCheques();
 
   String partyNameFor(String partyId) => _parties
       .firstWhere(
@@ -62,6 +63,23 @@ class ChequeController extends ChangeNotifier {
         ),
       )
       .name;
+
+  String displayPartyName(Cheque cheque) {
+    if (cheque.partyName.trim().isNotEmpty) {
+      return cheque.partyName;
+    }
+
+    if (cheque.partyId.isNotEmpty) {
+      return partyNameFor(cheque.partyId);
+    }
+
+    return 'Unknown';
+  }
+
+  void setNearThresholdDays(int days) {
+    _nearThresholdDays = days;
+    notifyListeners();
+  }
 
   Future<void> loadData() async {
     if (_user == null) return;
@@ -84,8 +102,7 @@ class ChequeController extends ChangeNotifier {
     required String partyName,
     required String chequeNumber,
     required double amount,
-    required DateTime issueDate,
-    required DateTime dueDate,
+    required DateTime date,
   }) async {
     if (_user == null) {
       _lastError = AppError(code: 'NO_USER', message: 'User not logged in.');
@@ -132,19 +149,21 @@ class ChequeController extends ChangeNotifier {
             name: partyName,
           );
 
-      final status = _calculateStatus(dueDate, cashed: false);
+      final status = _calculateStatus(date, cashed: false);
+      final now = DateTime.now();
 
       final cheque = Cheque(
         id: '',
         userId: _user!.uid,
         partyId: party.id,
+        partyName: partyName,
         chequeNumber: chequeNumber,
         amount: amount,
-        issueDate: issueDate,
-        dueDate: dueDate,
+        date: date,
         status: status,
         notificationSent: false,
-        createdAt: DateTime.now(),
+        createdAt: now,
+        updatedAt: now,
       );
 
       final saved = await _chequeService.addCheque(cheque);
@@ -174,11 +193,11 @@ class ChequeController extends ChangeNotifier {
           continue;
         }
 
-        final newStatus = _calculateStatus(c.dueDate, cashed: false);
+        final newStatus = _calculateStatus(c.date, cashed: false);
 
         // If it just became "near" and no notification yet -> notify
         if (newStatus == ChequeStatus.near && !c.notificationSent) {
-          final partyName = partyNameFor(c.partyId);
+          final partyName = displayPartyName(c);
           await NotificationService.instance.showChequeReminder(
             cheque: c,
             partyName: partyName,
@@ -186,18 +205,22 @@ class ChequeController extends ChangeNotifier {
 
           await _chequeService.markNotificationSent(c.id);
 
+          final now = DateTime.now();
           updated.add(
             c.copyWith(
               status: newStatus,
               notificationSent: true,
+              updatedAt: now,
             ),
           );
         } else if (newStatus != c.status) {
+          final now = DateTime.now();
           await _chequeService.updateChequeStatus(
             chequeId: c.id,
             status: newStatus,
+            updatedAt: now,
           );
-          updated.add(c.copyWith(status: newStatus));
+          updated.add(c.copyWith(status: newStatus, updatedAt: now));
         } else {
           updated.add(c);
         }
@@ -214,38 +237,113 @@ class ChequeController extends ChangeNotifier {
   }
 
   Future<void> markAsCashed(String chequeId) async {
+    await updateChequeStatus(
+      chequeId: chequeId,
+      status: ChequeStatus.cashed,
+    );
+  }
+
+  Future<void> updateChequeStatus({
+    required String chequeId,
+    required ChequeStatus status,
+  }) async {
+    final index = _cheques.indexWhere((c) => c.id == chequeId);
+    if (index == -1) {
+      _lastError = AppError(
+        code: 'CHEQUE_NOT_FOUND',
+        message: 'Cheque not found.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    final current = _cheques[index];
+    if (current.status == status) {
+      _lastError = AppError(
+        code: 'STATUS_ALREADY_SET',
+        message: 'Cheque is already ${status.name}.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    final now = DateTime.now();
+    final optimistic = current.copyWith(status: status, updatedAt: now);
+    final updated = List<Cheque>.from(_cheques);
+    updated[index] = optimistic;
+    _cheques = updated;
+    _lastError = null;
+    notifyListeners();
+
     try {
       await _chequeService.updateChequeStatus(
         chequeId: chequeId,
-        status: ChequeStatus.cashed,
+        status: status,
+        updatedAt: now,
       );
-      _cheques = _cheques
-          .map(
-            (c) =>
-                c.id == chequeId ? c.copyWith(status: ChequeStatus.cashed) : c,
-          )
-          .toList();
+      _lastError = null;
       notifyListeners();
     } on AppError catch (e) {
+      final reverted = List<Cheque>.from(_cheques);
+      reverted[index] = current;
+      _cheques = reverted;
       _lastError = e;
       notifyListeners();
     }
   }
 
   // Helper: recalc status based on dates
-  ChequeStatus _calculateStatus(DateTime dueDate, {required bool cashed}) {
+  ChequeStatus _calculateStatus(DateTime chequeDate, {required bool cashed}) {
     if (cashed) return ChequeStatus.cashed;
 
     final today = DateTime.now();
     final d = DateTime(today.year, today.month, today.day);
-    final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final due = DateTime(chequeDate.year, chequeDate.month, chequeDate.day);
 
     if (due.isBefore(d)) {
       return ChequeStatus.expired;
     }
 
-    final diff = due.difference(d).inDays;
-    if (diff <= 3) {
+    if (due.difference(d).inDays <= _nearThresholdDays) {
+      return ChequeStatus.near;
+    }
+
+    return ChequeStatus.valid;
+  }
+
+  Map<ChequeStatus, List<Cheque>> _sectionedCheques() {
+    final sections = {
+      ChequeStatus.cashed: <Cheque>[],
+      ChequeStatus.near: <Cheque>[],
+      ChequeStatus.valid: <Cheque>[],
+      ChequeStatus.expired: <Cheque>[],
+    };
+
+    for (final cheque in _cheques) {
+      sections[_deriveStatus(cheque)]!.add(cheque);
+    }
+
+    return sections;
+  }
+
+  ChequeStatus _deriveStatus(Cheque cheque) {
+    if (cheque.status == ChequeStatus.cashed) {
+      return ChequeStatus.cashed;
+    }
+
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    final chequeDate =
+        DateTime(cheque.date.year, cheque.date.month, cheque.date.day);
+
+    if (chequeDate.isBefore(day)) {
+      return ChequeStatus.expired;
+    }
+
+    if (cheque.isNear(
+      thresholdDays: _nearThresholdDays,
+      referenceDate: day,
+    )) {
       return ChequeStatus.near;
     }
 
