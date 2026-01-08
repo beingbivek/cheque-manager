@@ -1,8 +1,8 @@
 // lib/controllers/auth_controller.dart
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 
-import '../models/app_user.dart';
+import '../models/user.dart';
 import '../models/app_error.dart';
 import '../utils/error_mapper.dart';
 import '../services/auth_service.dart';
@@ -10,11 +10,11 @@ import '../services/auth_service.dart';
 class AuthController extends ChangeNotifier {
   final AuthService _authService = AuthService();
 
-  AppUser? _currentUser;
+  User? _currentUser;
   bool _isLoading = false;
   AppError? _lastError;
 
-  AppUser? get currentUser => _currentUser;
+  User? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   AppError? get lastError => _lastError;
   bool get isLoggedIn => _currentUser != null;
@@ -37,7 +37,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> reloadUserFromFirestore() async {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) return;
 
     _isLoading = true;
@@ -67,7 +67,6 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
 
   Future<void> registerWithEmail(String email, String password) async {
     _setLoading(true);

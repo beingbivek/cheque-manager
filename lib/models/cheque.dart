@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum ChequeStatus { valid, near, expired, cashed }
 
+enum ChequeSettlementStatus { pending, cleared }
+
 class Cheque {
   final String id;
   final String userId;
@@ -11,6 +13,7 @@ class Cheque {
   final double amount;
   final DateTime date;
   final ChequeStatus status;
+  final ChequeSettlementStatus settlementStatus;
   final bool notificationSent;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -24,6 +27,7 @@ class Cheque {
     required this.amount,
     required this.date,
     required this.status,
+    this.settlementStatus = ChequeSettlementStatus.pending,
     this.notificationSent = false,
     required this.createdAt,
     required this.updatedAt,
@@ -38,6 +42,7 @@ class Cheque {
     double? amount,
     DateTime? date,
     ChequeStatus? status,
+    ChequeSettlementStatus? settlementStatus,
     bool? notificationSent,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -51,6 +56,7 @@ class Cheque {
       amount: amount ?? this.amount,
       date: date ?? this.date,
       status: status ?? this.status,
+      settlementStatus: settlementStatus ?? this.settlementStatus,
       notificationSent: notificationSent ?? this.notificationSent,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -72,6 +78,8 @@ class Cheque {
       amount: (data['amount'] as num).toDouble(),
       date: (date ?? Timestamp.fromDate(createdAt)).toDate(),
       status: _statusFromString(data['status'] as String? ?? 'valid'),
+      settlementStatus:
+          _settlementStatusFromString(data['settlementStatus'] as String? ?? 'pending'),
       notificationSent: data['notificationSent'] as bool? ?? false,
       createdAt: createdAt,
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? createdAt,
@@ -87,6 +95,7 @@ class Cheque {
       'amount': amount,
       'date': date,
       'status': status.name,
+      'settlementStatus': settlementStatus.name,
       'notificationSent': notificationSent,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
@@ -117,6 +126,15 @@ class Cheque {
         return ChequeStatus.cashed;
       default:
         return ChequeStatus.valid;
+    }
+  }
+
+  static ChequeSettlementStatus _settlementStatusFromString(String value) {
+    switch (value) {
+      case 'cleared':
+        return ChequeSettlementStatus.cleared;
+      default:
+        return ChequeSettlementStatus.pending;
     }
   }
 }

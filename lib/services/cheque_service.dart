@@ -2,17 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/cheque.dart';
 import '../models/app_error.dart';
+import 'firestore_repository.dart';
 
 class ChequeService {
-  final _db = FirebaseFirestore.instance;
+  ChequeService({FirestoreRepository? repository})
+      : _repository = repository ?? FirestoreRepository();
+
+  final FirestoreRepository _repository;
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _db.collection('cheques');
+      _repository.cheques;
 
   Future<List<Cheque>> getChequesForUser(String userId) async {
     try {
       final snapshot =
-      await _collection.where('userId', isEqualTo: userId).get();
+          await _collection.where('userId', isEqualTo: userId).get();
       return snapshot.docs
           .map((d) => Cheque.fromMap(d.id, d.data()))
           .toList();
@@ -27,13 +31,24 @@ class ChequeService {
 
   Future<int> countChequesForUser(String userId) async {
     final snapshot =
-    await _collection.where('userId', isEqualTo: userId).get();
+        await _collection.where('userId', isEqualTo: userId).get();
     return snapshot.size;
   }
 
   Future<Cheque> addCheque(Cheque cheque) async {
     try {
-      final doc = await _collection.add(cheque.toMap());
+      final doc = _collection.doc();
+      final data = cheque.copyWith(id: doc.id).toMap();
+
+      final batch = _collection.firestore.batch();
+      batch.set(doc, data);
+      batch.update(_repository.users.doc(cheque.userId), {
+        'chequeCount': FieldValue.increment(1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
+
       final snap = await doc.get();
       return Cheque.fromMap(snap.id, snap.data()!);
     } on FirebaseException catch (e) {
@@ -56,7 +71,6 @@ class ChequeService {
       );
     }
   }
-
 
   Future<void> updateChequeStatus({
     required String chequeId,

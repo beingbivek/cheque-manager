@@ -1,35 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AppUser {
+enum UserStatus { active, suspended }
+
+enum UserTier { free, pro }
+
+class User {
   final String uid;
   final String email;
   final String? displayName;
   final String role;
-  final String plan; // free/pro
-  final DateTime? planExpiry;
+  final UserTier tier;
+  final UserStatus status;
   final int partyCount;
   final int chequeCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  AppUser({
+  User({
     required this.uid,
     required this.email,
     this.displayName,
     required this.role,
-    required this.plan,
-    required this.planExpiry,
+    required this.tier,
+    required this.status,
     required this.partyCount,
     required this.chequeCount,
     this.createdAt,
     this.updatedAt,
   });
 
-  bool get isPro {
-    if (plan != 'pro') return false;
-    if (planExpiry == null) return true;
-    return planExpiry!.isAfter(DateTime.now());
-  }
+  bool get isPro => tier == UserTier.pro;
 
   static DateTime? _toDate(dynamic raw) {
     if (raw == null) return null;
@@ -38,14 +38,14 @@ class AppUser {
     return null;
   }
 
-  factory AppUser.fromMap(String id, Map<String, dynamic> data) {
-    return AppUser(
+  factory User.fromMap(String id, Map<String, dynamic> data) {
+    return User(
       uid: id,
       email: data['email'] ?? '',
       displayName: data['displayName'],
       role: data['role'] ?? 'user',
-      plan: data['plan'] ?? 'free',
-      planExpiry: _toDate(data['planExpiry']),
+      tier: _tierFromString(data['tier'] ?? 'free'),
+      status: _statusFromString(data['status'] ?? 'active'),
       partyCount: (data['partyCount'] ?? 0) as int,
       chequeCount: (data['chequeCount'] ?? 0) as int,
       createdAt: _toDate(data['createdAt']),
@@ -58,12 +58,30 @@ class AppUser {
       'email': email,
       'displayName': displayName,
       'role': role,
-      'plan': plan,
-      'planExpiry': planExpiry == null ? null : Timestamp.fromDate(planExpiry!),
+      'tier': tier.name,
+      'status': status.name,
       'partyCount': partyCount,
       'chequeCount': chequeCount,
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
+  }
+
+  static UserTier _tierFromString(String value) {
+    switch (value) {
+      case 'pro':
+        return UserTier.pro;
+      default:
+        return UserTier.free;
+    }
+  }
+
+  static UserStatus _statusFromString(String value) {
+    switch (value) {
+      case 'suspended':
+        return UserStatus.suspended;
+      default:
+        return UserStatus.active;
+    }
   }
 }
