@@ -61,9 +61,13 @@ class ChequeService {
   Future<void> updateChequeStatus({
     required String chequeId,
     required ChequeStatus status,
+    required DateTime updatedAt,
   }) async {
     try {
-      await _collection.doc(chequeId).update({'status': status.name});
+      await _collection.doc(chequeId).update({
+        'status': status.name,
+        'updatedAt': updatedAt,
+      });
     } on FirebaseException catch (e) {
       throw AppError(
         code: 'FIRESTORE_${e.code.toUpperCase()}',

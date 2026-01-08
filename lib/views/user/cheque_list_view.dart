@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'upgrade_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -16,10 +18,25 @@ class ChequeListView extends StatefulWidget {
 
 class _ChequeListViewState extends State<ChequeListView> {
   String _searchQuery = '';
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ChequeController>();
+    final sections = controller.chequeSections;
 
     return DefaultTabController(
       length: 4,
@@ -54,9 +71,7 @@ class _ChequeListViewState extends State<ChequeListView> {
                   prefixIcon: Icon(Icons.search),
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (value) {
-                  setState(() => _searchQuery = value.trim().toLowerCase());
-                },
+                onChanged: _onSearchChanged,
               ),
             ),
             Expanded(
@@ -65,19 +80,19 @@ class _ChequeListViewState extends State<ChequeListView> {
                   : TabBarView(
                 children: [
                   _ChequeList(
-                    cheques: controller.chequesCashed,
+                    cheques: sections[ChequeStatus.cashed] ?? [],
                     searchQuery: _searchQuery,
                   ),
                   _ChequeList(
-                    cheques: controller.chequesNear,
+                    cheques: sections[ChequeStatus.near] ?? [],
                     searchQuery: _searchQuery,
                   ),
                   _ChequeList(
-                    cheques: controller.chequesValid,
+                    cheques: sections[ChequeStatus.valid] ?? [],
                     searchQuery: _searchQuery,
                   ),
                   _ChequeList(
-                    cheques: controller.chequesExpired,
+                    cheques: sections[ChequeStatus.expired] ?? [],
                     searchQuery: _searchQuery,
                   ),
                 ],
@@ -113,7 +128,7 @@ class _ChequeList extends StatelessWidget {
 
     final filtered = cheques.where((c) {
       if (searchQuery.isEmpty) return true;
-      final partyName = controller.partyNameFor(c.partyId).toLowerCase();
+      final partyName = controller.displayPartyName(c).toLowerCase();
       return partyName.contains(searchQuery);
     }).toList();
 
@@ -125,11 +140,11 @@ class _ChequeList extends StatelessWidget {
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final c = filtered[index];
-        final partyName = controller.partyNameFor(c.partyId);
+        final partyName = controller.displayPartyName(c);
         return ListTile(
           title: Text('$partyName - ${c.chequeNumber}'),
           subtitle: Text(
-              'Amount: ${c.amount.toStringAsFixed(2)} | Due: ${c.dueDate.toLocal().toString().split(' ').first}'),
+              'Amount: ${c.amount.toStringAsFixed(2)} | Date: ${c.date.toLocal().toString().split(' ').first}'),
           trailing: c.status == ChequeStatus.cashed
               ? const Icon(Icons.check_circle, color: Colors.green)
               : IconButton(
