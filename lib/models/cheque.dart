@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum ChequeStatus { valid, near, expired, cashed }
 
+enum ChequeSettlementStatus { pending, cleared }
+
 class Cheque {
   final String id;
   final String userId;
@@ -11,8 +13,10 @@ class Cheque {
   final DateTime issueDate;
   final DateTime dueDate;
   final ChequeStatus status;
+  final ChequeSettlementStatus settlementStatus;
   final bool notificationSent;
   final DateTime createdAt;
+  final DateTime? updatedAt;
 
   Cheque({
     required this.id,
@@ -23,8 +27,10 @@ class Cheque {
     required this.issueDate,
     required this.dueDate,
     required this.status,
+    this.settlementStatus = ChequeSettlementStatus.pending,
     this.notificationSent = false,
     required this.createdAt,
+    this.updatedAt,
   });
 
   Cheque copyWith({
@@ -36,8 +42,10 @@ class Cheque {
     DateTime? issueDate,
     DateTime? dueDate,
     ChequeStatus? status,
+    ChequeSettlementStatus? settlementStatus,
     bool? notificationSent,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Cheque(
       id: id ?? this.id,
@@ -48,8 +56,10 @@ class Cheque {
       issueDate: issueDate ?? this.issueDate,
       dueDate: dueDate ?? this.dueDate,
       status: status ?? this.status,
+      settlementStatus: settlementStatus ?? this.settlementStatus,
       notificationSent: notificationSent ?? this.notificationSent,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -63,8 +73,11 @@ class Cheque {
       issueDate: (data['issueDate'] as Timestamp).toDate(),
       dueDate: (data['dueDate'] as Timestamp).toDate(),
       status: _statusFromString(data['status'] as String? ?? 'valid'),
+      settlementStatus:
+          _settlementStatusFromString(data['settlementStatus'] as String? ?? 'pending'),
       notificationSent: data['notificationSent'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -77,8 +90,10 @@ class Cheque {
       'issueDate': issueDate,
       'dueDate': dueDate,
       'status': status.name,
+      'settlementStatus': settlementStatus.name,
       'notificationSent': notificationSent,
       'createdAt': createdAt,
+      'updatedAt': updatedAt,
     };
   }
 
@@ -92,6 +107,15 @@ class Cheque {
         return ChequeStatus.cashed;
       default:
         return ChequeStatus.valid;
+    }
+  }
+
+  static ChequeSettlementStatus _settlementStatusFromString(String value) {
+    switch (value) {
+      case 'cleared':
+        return ChequeSettlementStatus.cleared;
+      default:
+        return ChequeSettlementStatus.pending;
     }
   }
 }

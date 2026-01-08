@@ -1,8 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_error.dart';
+import '../models/subscription.dart';
+import 'firestore_repository.dart';
 
 class SubscriptionService {
-  final _db = FirebaseFirestore.instance;
+  SubscriptionService({FirestoreRepository? repository})
+      : _repository = repository ?? FirestoreRepository();
+
+  final FirestoreRepository _repository;
 
   Future<void> upgradeToPro({
     required String userId,
@@ -14,8 +19,24 @@ class SubscriptionService {
       final now = DateTime.now();
       final expiry = now.add(const Duration(days: 30));
 
+      final subscription = Subscription(
+        id: '',
+        userId: userId,
+        tier: SubscriptionTier.pro,
+        status: SubscriptionStatus.active,
+        startAt: now,
+        endAt: expiry,
+        createdAt: now,
+        updatedAt: now,
+      );
+
       // 1) Log payment
-      await _db.collection('payments').add({
+      final paymentDoc = _repository.payments.doc();
+      final subscriptionDoc = _repository.subscriptions.doc();
+      final userDoc = _repository.users.doc(userId);
+
+      final batch = _repository.users.firestore.batch();
+      batch.set(paymentDoc, {
         'userId': userId,
         'amount': amount, // 500
         'amountPaisa': khaltiAmountPaisa,
@@ -25,12 +46,13 @@ class SubscriptionService {
         'validUntil': expiry,
         'createdAt': now,
       });
-
-      // 2) Update user plan
-      await _db.collection('users').doc(userId).update({
-        'plan': 'pro',
-        'planExpiry': expiry,
+      batch.set(subscriptionDoc, subscription.copyWith(id: subscriptionDoc.id).toMap());
+      batch.update(userDoc, {
+        'tier': 'pro',
+        'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      await batch.commit();
     } on FirebaseException catch (e) {
       throw AppError(
         code: 'FIRESTORE_${e.code.toUpperCase()}',
