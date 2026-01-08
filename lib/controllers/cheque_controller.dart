@@ -1,25 +1,26 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/app_user.dart';
+import '../models/user.dart';
 import '../models/cheque.dart';
 import '../models/party.dart';
 import '../models/app_error.dart';
 import '../services/cheque_service.dart';
 import '../services/party_service.dart';
 import '../services/notification_service.dart';
-
+import '../services/user_service.dart';
 
 class ChequeController extends ChangeNotifier {
   final ChequeService _chequeService = ChequeService();
   final PartyService _partyService = PartyService();
+  final UserService _userService = UserService();
 
-  AppUser? _user;
+  User? _user;
   List<Cheque> _cheques = [];
   List<Party> _parties = [];
   AppError? _lastError;
   bool _isLoading = false;
 
-  void setUser(AppUser? user) {
+  void setUser(User? user) {
     _user = user;
     if (user != null) {
       loadData();
@@ -79,7 +80,6 @@ class ChequeController extends ChangeNotifier {
     }
   }
 
-
   Future<void> addCheque({
     required String partyName,
     required String chequeNumber,
@@ -97,13 +97,19 @@ class ChequeController extends ChangeNotifier {
     try {
       _lastError = null;
 
+      final userProfile = await _userService.fetchUser(_user!.uid);
+
       // enforce subscription limits
-      final isPro = _user!.isPro;
+      final isPro = userProfile.isPro;
       final maxParties = isPro ? 50 : 5;
       final maxCheques = isPro ? 50 : 5;
 
-      final partyCount = await _partyService.countPartiesForUser(_user!.uid);
-      if (partyCount >= maxParties) {
+      final existingParty = await _partyService.findByName(
+        userId: _user!.uid,
+        name: partyName,
+      );
+
+      if (existingParty == null && userProfile.partyCount >= maxParties) {
         throw AppError(
           code: 'LIMIT_PARTY',
           message:
@@ -111,8 +117,7 @@ class ChequeController extends ChangeNotifier {
         );
       }
 
-      final chequeCount = await _chequeService.countChequesForUser(_user!.uid);
-      if (chequeCount >= maxCheques) {
+      if (userProfile.chequeCount >= maxCheques) {
         throw AppError(
           code: 'LIMIT_CHEQUE',
           message:
@@ -121,10 +126,11 @@ class ChequeController extends ChangeNotifier {
       }
 
       // create or get party
-      final party = await _partyService.createOrGetByName(
-        userId: _user!.uid,
-        name: partyName,
-      );
+      final party = existingParty ??
+          await _partyService.createParty(
+            userId: _user!.uid,
+            name: partyName,
+          );
 
       final status = _calculateStatus(dueDate, cashed: false);
 
@@ -206,7 +212,6 @@ class ChequeController extends ChangeNotifier {
       _setLoading(false);
     }
   }
-
 
   Future<void> markAsCashed(String chequeId) async {
     try {

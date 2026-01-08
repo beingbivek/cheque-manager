@@ -1,12 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum PartyStatus { active, archived }
+
 class Party {
   final String id;
   final String userId;
   final String name;
   final String? phone;
   final String? notes;
+  final PartyStatus status;
   final DateTime createdAt;
+  final DateTime? updatedAt;
 
   Party({
     required this.id,
@@ -14,7 +18,9 @@ class Party {
     required this.name,
     this.phone,
     this.notes,
+    this.status = PartyStatus.active,
     required this.createdAt,
+    this.updatedAt,
   });
 
   factory Party.fromMap(String id, Map<String, dynamic> data) {
@@ -24,7 +30,9 @@ class Party {
       name: data['name'] as String,
       phone: data['phone'] as String?,
       notes: data['notes'] as String?,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      status: _statusFromString(data['status'] as String? ?? 'active'),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -34,7 +42,18 @@ class Party {
       'name': name,
       'phone': phone,
       'notes': notes,
+      'status': status.name,
       'createdAt': createdAt,
+      'updatedAt': updatedAt,
     };
+  }
+
+  static PartyStatus _statusFromString(String value) {
+    switch (value) {
+      case 'archived':
+        return PartyStatus.archived;
+      default:
+        return PartyStatus.active;
+    }
   }
 }

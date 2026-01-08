@@ -1,43 +1,47 @@
 // lib/services/auth_service.dart
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../models/app_user.dart';
+import '../models/user.dart';
 import '../models/app_error.dart';
+import 'firestore_repository.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final FirestoreRepository _repository = FirestoreRepository();
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<firebase_auth.User?> get authStateChanges => _auth.authStateChanges();
 
   // lib/services/auth_service.dart
-  Future<AppUser> createOrGetUser(User firebaseUser) async {
+  Future<User> createOrGetUser(firebase_auth.User firebaseUser) async {
     try {
-      final doc = _db.collection('users').doc(firebaseUser.uid);
+      final doc = _repository.users.doc(firebaseUser.uid);
       final snapshot = await doc.get();
 
       if (!snapshot.exists) {
-        final newUser = AppUser(
+        final now = DateTime.now();
+        final newUser = User(
           uid: firebaseUser.uid,
           email: firebaseUser.email ?? '',
           displayName: firebaseUser.displayName,
           role: 'user',
-          plan: 'free',
-          planExpiry: DateTime.now(),
+          tier: UserTier.free,
+          status: UserStatus.active,
           partyCount: 0,
           chequeCount: 0,
+          createdAt: now,
+          updatedAt: now,
         );
         await doc.set(newUser.toMap());
         return newUser;
       } else {
-        return AppUser.fromMap(snapshot.id, snapshot.data()!);
+        return User.fromMap(snapshot.id, snapshot.data()!);
       }
     } on FirebaseException catch (e) {
       // Firestore-specific error -> wrap in AppError with a clear code
       throw AppError(
-        code: 'FIRESTORE_${e.code.toUpperCase()}',  // e.g. FIRESTORE_PERMISSION-DENIED
+        code: 'FIRESTORE_${e.code.toUpperCase()}', // e.g. FIRESTORE_PERMISSION-DENIED
         message: 'Database error: ${e.message ?? 'Unable to access data.'}',
         original: e,
       );
@@ -50,8 +54,7 @@ class AuthService {
     }
   }
 
-
-  Future<AppUser> registerWithEmail(String email, String password) async {
+  Future<User> registerWithEmail(String email, String password) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -59,7 +62,7 @@ class AuthService {
       );
       final user = credential.user!;
       return await createOrGetUser(user);
-    } on FirebaseAuthException catch (e) {
+    } on firebase_auth.FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_REG_${e.code.toUpperCase()}',
         message: e.message ?? 'Failed to register.',
@@ -74,7 +77,7 @@ class AuthService {
     }
   }
 
-  Future<AppUser> loginWithEmail(String email, String password) async {
+  Future<User> loginWithEmail(String email, String password) async {
     try {
       final credential = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -82,7 +85,7 @@ class AuthService {
       );
       final user = credential.user!;
       return await createOrGetUser(user);
-    } on FirebaseAuthException catch (e) {
+    } on firebase_auth.FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_LOGIN_${e.code.toUpperCase()}',
         message: e.message ?? 'Failed to login.',
@@ -97,7 +100,7 @@ class AuthService {
     }
   }
 
-  Future<AppUser> signInWithGoogle() async {
+  Future<User> signInWithGoogle() async {
     try {
       // Native (Android/iOS) flow
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -110,7 +113,7 @@ class AuthService {
 
       final googleAuth = await googleUser.authentication;
 
-      final credential = GoogleAuthProvider.credential(
+      final credential = firebase_auth.GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
@@ -118,7 +121,7 @@ class AuthService {
       final result = await _auth.signInWithCredential(credential);
       final user = result.user!;
       return await createOrGetUser(user);
-    } on FirebaseAuthException catch (e) {
+    } on firebase_auth.FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_GOOGLE_${e.code.toUpperCase()}',
         message: e.message ?? 'Google sign-in failed.',

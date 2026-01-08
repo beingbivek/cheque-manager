@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/subscription_controller.dart';
 import '../../models/app_error.dart';
-import '../../models/app_user.dart';
+import '../../models/user.dart';
 import '../../services/khalti_verify_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -17,7 +17,7 @@ class UpgradeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final sub = context.watch<SubscriptionController>();
-    final AppUser? user = auth.currentUser;
+    final User? user = auth.currentUser;
 
     if (user == null) return const SizedBox.shrink();
     if (user.isPro) return const SizedBox.shrink();
@@ -60,7 +60,7 @@ class UpgradeBanner extends StatelessWidget {
     );
   }
 
-  void _startKhaltiPayment(BuildContext context, AppUser user) {
+  void _startKhaltiPayment(BuildContext context, User user) {
     final sub = context.read<SubscriptionController>();
 
     final config = PaymentConfig(
@@ -86,11 +86,11 @@ class UpgradeBanner extends StatelessWidget {
                   amountPaisa: success.amount,
                 );
 
-                final expiry = DateTime.now().add(const Duration(days: 30));
-
-                await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-                  'plan': 'pro',
-                  'planExpiry': Timestamp.fromDate(expiry),
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .update({
+                  'tier': 'pro',
                   'updatedAt': Timestamp.now(),
                 });
 

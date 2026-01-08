@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userData() {
+      return userDoc().data;
+    }
+
+    function hasUserProfile() {
+      return userDoc().exists();
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isPro() {
+      return hasUserProfile() && userData().tier == 'pro';
+    }
+
+    function maxParties() {
+      return isPro() ? 50 : 5;
+    }
+
+    function maxCheques() {
+      return isPro() ? 50 : 5;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll([
+          'email',
+          'role',
+          'tier',
+          'status',
+          'partyCount',
+          'chequeCount',
+          'createdAt',
+          'updatedAt'
+        ]);
+      allow update: if isOwner(userId)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.tier in ['free', 'pro']
+        && request.resource.data.status in ['active', 'suspended']
+        && request.resource.data.partyCount >= resource.data.partyCount
+        && request.resource.data.chequeCount >= resource.data.chequeCount;
+    }
+
+    match /parties/{partyId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && hasUserProfile()
+        && userData().partyCount < maxParties()
+        && request.resource.data.status in ['active', 'archived']
+        && request.resource.data.keys().hasAll([
+          'userId',
+          'name',
+          'status',
+          'createdAt'
+        ]);
+      allow update, delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /cheques/{chequeId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && hasUserProfile()
+        && userData().chequeCount < maxCheques()
+        && request.resource.data.status in ['valid', 'near', 'expired', 'cashed']
+        && request.resource.data.keys().hasAll([
+          'userId',
+          'partyId',
+          'chequeNumber',
+          'amount',
+          'issueDate',
+          'dueDate',
+          'status',
+          'settlementStatus',
+          'notificationSent',
+          'createdAt'
+        ]);
+      allow update, delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /subscriptions/{subscriptionId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.tier in ['free', 'pro']
+        && request.resource.data.status in ['active', 'canceled', 'expired']
+        && request.resource.data.keys().hasAll([
+          'userId',
+          'tier',
+          'status',
+          'startAt',
+          'endAt',
+          'createdAt'
+        ]);
+      allow update, delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+  }
+}
