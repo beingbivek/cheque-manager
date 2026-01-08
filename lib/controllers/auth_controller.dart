@@ -97,6 +97,24 @@ class AuthController extends ChangeNotifier {
     await _authService.logout();
   }
 
+  Future<void> updateReminderDays(List<int> reminderDays) async {
+    if (_currentUser == null) return;
+    _setLoading(true);
+    try {
+      await _authService.updateReminderDays(
+        userId: _currentUser!.uid,
+        reminderDays: reminderDays,
+      );
+      _currentUser = _currentUser!.copyWith(reminderDays: reminderDays);
+    } on AppError catch (e) {
+      _lastError = ErrorMapper.toAppError(e, fallbackCode: 'USER_UPDATE_ERROR');
+    } catch (e) {
+      _lastError = ErrorMapper.toAppError(e, fallbackCode: 'USER_UPDATE_ERROR');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();

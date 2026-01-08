@@ -28,6 +28,7 @@ class AuthService {
           planExpiry: DateTime.now(),
           partyCount: 0,
           chequeCount: 0,
+          reminderDays: const [1, 3, 7],
         );
         await doc.set(newUser.toMap());
         return newUser;
@@ -136,5 +137,15 @@ class AuthService {
   Future<void> logout() async {
     await _auth.signOut();
     await GoogleSignIn().signOut();
+  }
+
+  Future<void> updateReminderDays({
+    required String userId,
+    required List<int> reminderDays,
+  }) async {
+    await _db.collection('users').doc(userId).update({
+      'reminderDays': reminderDays,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
   }
 }

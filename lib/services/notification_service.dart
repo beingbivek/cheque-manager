@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_native_timezone/flutter_native_timezone.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../models/cheque.dart';
 import '../routes/app_routes.dart';
@@ -19,6 +22,10 @@ class NotificationService {
       'Notifications for cheques that are due soon.';
 
   Future<void> init() async {
+    tz.initializeTimeZones();
+    final timeZoneName = await FlutterNativeTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(timeZoneName));
+
     // Android init
     const AndroidInitializationSettings androidInit =
     AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -33,12 +40,14 @@ class NotificationService {
         final payload = response.payload;
         if (payload == null) return;
 
-        final parts = Uri.splitQueryString(payload.replaceFirst('route=', 'route=/'));
+        final parts = Uri.splitQueryString(payload);
         final route = parts['route'];
-        final id = parts['id'];
+        final chequeId = parts['chequeId'];
 
-        if (route == AppRoutes.chequeDetails && id != null) {
-          _handleNotificationTap(id);
+        debugPrint('Notification tapped payload=$payload');
+
+        if (route == AppRoutes.chequeDetails && chequeId != null) {
+          _handleNotificationTap(chequeId);
         }
 
       },
@@ -62,6 +71,8 @@ class NotificationService {
   void _handleNotificationTap(String chequeId) {
     final navState = NavigationService.navigatorKey.currentState;
     if (navState == null) return;
+
+    debugPrint('Routing to cheque details for $chequeId');
 
     // Ensure we're on user dashboard, then push cheque detail
     navState.pushNamedAndRemoveUntil(
@@ -96,7 +107,69 @@ class NotificationService {
       'Cheque due soon: $partyName',
       'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is near due date.',
       details,
-      payload: 'route=/chequeDetails&id=${cheque.id}',
+      payload: 'route=${AppRoutes.chequeDetails}&chequeId=${cheque.id}',
     );
+  }
+
+  Future<void> scheduleChequeReminders({
+    required Cheque cheque,
+    required String partyName,
+    required List<int> reminderDays,
+  }) async {
+    await cancelChequeReminders(chequeId: cheque.id, reminderDays: reminderDays);
+
+    const AndroidNotificationDetails androidDetails =
+    AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      priority: Priority.high,
+      importance: Importance.high,
+    );
+
+    const NotificationDetails details =
+    NotificationDetails(android: androidDetails);
+
+    for (final days in reminderDays) {
+      final scheduledDate = cheque.dueDate.subtract(Duration(days: days));
+      if (scheduledDate.isBefore(DateTime.now())) {
+        debugPrint(
+          'Skipping reminder for cheque ${cheque.id} ($days days): $scheduledDate is in the past.',
+        );
+        continue;
+      }
+
+      final notificationId = _notificationIdFor(cheque.id, days);
+      debugPrint(
+        'Scheduling cheque ${cheque.id} reminder for $days days at $scheduledDate.',
+      );
+
+      await _plugin.zonedSchedule(
+        notificationId,
+        'Cheque due soon: $partyName',
+        'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is due in $days day(s).',
+        tz.TZDateTime.from(scheduledDate, tz.local),
+        details,
+        payload: 'route=${AppRoutes.chequeDetails}&chequeId=${cheque.id}',
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+    }
+  }
+
+  Future<void> cancelChequeReminders({
+    required String chequeId,
+    required List<int> reminderDays,
+  }) async {
+    for (final days in reminderDays) {
+      final notificationId = _notificationIdFor(chequeId, days);
+      await _plugin.cancel(notificationId);
+    }
+  }
+
+  int _notificationIdFor(String chequeId, int dayOffset) {
+    final base = chequeId.hashCode & 0x7fffffff;
+    return base + dayOffset;
   }
 }

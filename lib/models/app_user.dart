@@ -9,6 +9,7 @@ class AppUser {
   final DateTime? planExpiry;
   final int partyCount;
   final int chequeCount;
+  final List<int> reminderDays;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -21,6 +22,7 @@ class AppUser {
     required this.planExpiry,
     required this.partyCount,
     required this.chequeCount,
+    required this.reminderDays,
     this.createdAt,
     this.updatedAt,
   });
@@ -38,6 +40,16 @@ class AppUser {
     return null;
   }
 
+  static List<int> _toReminderDays(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .map((value) => int.tryParse(value.toString()))
+          .whereType<int>()
+          .toList();
+    }
+    return [1, 3, 7];
+  }
+
   factory AppUser.fromMap(String id, Map<String, dynamic> data) {
     return AppUser(
       uid: id,
@@ -48,8 +60,37 @@ class AppUser {
       planExpiry: _toDate(data['planExpiry']),
       partyCount: (data['partyCount'] ?? 0) as int,
       chequeCount: (data['chequeCount'] ?? 0) as int,
+      reminderDays: _toReminderDays(data['reminderDays']),
       createdAt: _toDate(data['createdAt']),
       updatedAt: _toDate(data['updatedAt']),
+    );
+  }
+
+  AppUser copyWith({
+    String? uid,
+    String? email,
+    String? displayName,
+    String? role,
+    String? plan,
+    DateTime? planExpiry,
+    int? partyCount,
+    int? chequeCount,
+    List<int>? reminderDays,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return AppUser(
+      uid: uid ?? this.uid,
+      email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      role: role ?? this.role,
+      plan: plan ?? this.plan,
+      planExpiry: planExpiry ?? this.planExpiry,
+      partyCount: partyCount ?? this.partyCount,
+      chequeCount: chequeCount ?? this.chequeCount,
+      reminderDays: reminderDays ?? this.reminderDays,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -62,6 +103,7 @@ class AppUser {
       'planExpiry': planExpiry == null ? null : Timestamp.fromDate(planExpiry!),
       'partyCount': partyCount,
       'chequeCount': chequeCount,
+      'reminderDays': reminderDays,
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };

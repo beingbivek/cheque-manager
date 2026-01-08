@@ -146,6 +146,7 @@ class ChequeController extends ChangeNotifier {
       if (!_parties.any((p) => p.id == party.id)) {
         _parties.add(party);
       }
+      await _scheduleChequeReminders(saved);
       notifyListeners();
     } on AppError catch (e) {
       _lastError = e;
@@ -164,11 +165,17 @@ class ChequeController extends ChangeNotifier {
       final List<Cheque> updated = [];
       for (final c in _cheques) {
         if (c.status == ChequeStatus.cashed) {
+          await _cancelChequeReminders(c);
           updated.add(c);
           continue;
         }
 
         final newStatus = _calculateStatus(c.dueDate, cashed: false);
+        if (newStatus == ChequeStatus.expired) {
+          await _cancelChequeReminders(c);
+        } else {
+          await _scheduleChequeReminders(c);
+        }
 
         // If it just became "near" and no notification yet -> notify
         if (newStatus == ChequeStatus.near && !c.notificationSent) {
@@ -214,6 +221,8 @@ class ChequeController extends ChangeNotifier {
         chequeId: chequeId,
         status: ChequeStatus.cashed,
       );
+      final cheque = _cheques.firstWhere((c) => c.id == chequeId);
+      await _cancelChequeReminders(cheque);
       _cheques = _cheques
           .map(
             (c) =>
@@ -245,6 +254,33 @@ class ChequeController extends ChangeNotifier {
     }
 
     return ChequeStatus.valid;
+  }
+
+  Future<void> _scheduleChequeReminders(Cheque cheque) async {
+    if (_user == null) return;
+    if (cheque.status == ChequeStatus.cashed ||
+        cheque.status == ChequeStatus.expired) {
+      return;
+    }
+    final reminderDays =
+        _user!.reminderDays.isEmpty ? [1, 3, 7] : _user!.reminderDays;
+    if (reminderDays.isEmpty) return;
+    final partyName = partyNameFor(cheque.partyId);
+    await NotificationService.instance.scheduleChequeReminders(
+      cheque: cheque,
+      partyName: partyName,
+      reminderDays: reminderDays,
+    );
+  }
+
+  Future<void> _cancelChequeReminders(Cheque cheque) async {
+    if (_user == null) return;
+    final reminderDays =
+        _user!.reminderDays.isEmpty ? [1, 3, 7] : _user!.reminderDays;
+    await NotificationService.instance.cancelChequeReminders(
+      chequeId: cheque.id,
+      reminderDays: reminderDays,
+    );
   }
 
   void _setLoading(bool value) {

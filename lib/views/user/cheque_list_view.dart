@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/cheque.dart';
+import '../../routes/app_routes.dart';
 import 'cheque_form_view.dart';
 
 class ChequeListView extends StatefulWidget {
@@ -38,6 +39,12 @@ class _ChequeListViewState extends State<ChequeListView> {
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => controller.refreshStatuses(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.of(context).pushNamed(AppRoutes.settings);
+              },
             ),
           ],
         ),
