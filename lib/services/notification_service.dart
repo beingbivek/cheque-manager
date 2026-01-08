@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_native_timezone/flutter_native_timezone.dart';
@@ -40,9 +42,14 @@ class NotificationService {
         final payload = response.payload;
         if (payload == null) return;
 
-        final parts = Uri.splitQueryString(payload);
-        final route = parts['route'];
-        final chequeId = parts['chequeId'];
+        Map<String, dynamic> data = {};
+        try {
+          data = jsonDecode(payload) as Map<String, dynamic>;
+        } catch (e) {
+          debugPrint('Failed to parse notification payload: $e');
+        }
+        final route = data['route'] as String?;
+        final chequeId = data['chequeId'] as String?;
 
         debugPrint('Notification tapped payload=$payload');
 
@@ -107,7 +114,12 @@ class NotificationService {
       'Cheque due soon: $partyName',
       'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is near due date.',
       details,
-      payload: 'route=${AppRoutes.chequeDetails}&chequeId=${cheque.id}',
+      payload: jsonEncode(
+        {
+          'route': AppRoutes.chequeDetails,
+          'chequeId': cheque.id,
+        },
+      ),
     );
   }
 
@@ -150,7 +162,12 @@ class NotificationService {
         'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is due in $days day(s).',
         tz.TZDateTime.from(scheduledDate, tz.local),
         details,
-        payload: 'route=${AppRoutes.chequeDetails}&chequeId=${cheque.id}',
+        payload: jsonEncode(
+          {
+            'route': AppRoutes.chequeDetails,
+            'chequeId': cheque.id,
+          },
+        ),
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

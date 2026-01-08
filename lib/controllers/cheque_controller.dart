@@ -177,23 +177,7 @@ class ChequeController extends ChangeNotifier {
           await _scheduleChequeReminders(c);
         }
 
-        // If it just became "near" and no notification yet -> notify
-        if (newStatus == ChequeStatus.near && !c.notificationSent) {
-          final partyName = partyNameFor(c.partyId);
-          await NotificationService.instance.showChequeReminder(
-            cheque: c,
-            partyName: partyName,
-          );
-
-          await _chequeService.markNotificationSent(c.id);
-
-          updated.add(
-            c.copyWith(
-              status: newStatus,
-              notificationSent: true,
-            ),
-          );
-        } else if (newStatus != c.status) {
+        if (newStatus != c.status) {
           await _chequeService.updateChequeStatus(
             chequeId: c.id,
             status: newStatus,
