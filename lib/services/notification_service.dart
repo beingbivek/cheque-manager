@@ -15,6 +15,9 @@ class NotificationService {
 
   static final NotificationService instance = NotificationService._internal();
 
+  static const String payloadRouteKey = 'route';
+  static const String payloadChequeIdKey = 'chequeId';
+
   final FlutterLocalNotificationsPlugin _plugin =
   FlutterLocalNotificationsPlugin();
 
@@ -42,14 +45,9 @@ class NotificationService {
         final payload = response.payload;
         if (payload == null) return;
 
-        Map<String, dynamic> data = {};
-        try {
-          data = jsonDecode(payload) as Map<String, dynamic>;
-        } catch (e) {
-          debugPrint('Failed to parse notification payload: $e');
-        }
-        final route = data['route'] as String?;
-        final chequeId = data['chequeId'] as String?;
+        final data = parsePayload(payload);
+        final route = data[payloadRouteKey] as String?;
+        final chequeId = data[payloadChequeIdKey] as String?;
 
         debugPrint('Notification tapped payload=$payload');
 
@@ -114,12 +112,7 @@ class NotificationService {
       'Cheque due soon: $partyName',
       'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is near due date.',
       details,
-      payload: jsonEncode(
-        {
-          'route': AppRoutes.chequeDetails,
-          'chequeId': cheque.id,
-        },
-      ),
+      payload: buildPayload(cheque.id),
     );
   }
 
@@ -162,12 +155,7 @@ class NotificationService {
         'Cheque ${cheque.chequeNumber} of Rs ${cheque.amount.toStringAsFixed(2)} is due in $days day(s).',
         tz.TZDateTime.from(scheduledDate, tz.local),
         details,
-        payload: jsonEncode(
-          {
-            'route': AppRoutes.chequeDetails,
-            'chequeId': cheque.id,
-          },
-        ),
+        payload: buildPayload(cheque.id),
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -188,5 +176,26 @@ class NotificationService {
   int _notificationIdFor(String chequeId, int dayOffset) {
     final base = chequeId.hashCode & 0x7fffffff;
     return base + dayOffset;
+  }
+
+  static String buildPayload(String chequeId) {
+    return jsonEncode(
+      {
+        payloadRouteKey: AppRoutes.chequeDetails,
+        payloadChequeIdKey: chequeId,
+      },
+    );
+  }
+
+  static Map<String, dynamic> parsePayload(String payload) {
+    try {
+      final data = jsonDecode(payload);
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+    } catch (e) {
+      debugPrint('Failed to parse notification payload: $e');
+    }
+    return {};
   }
 }
