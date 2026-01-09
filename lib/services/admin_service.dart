@@ -14,110 +14,71 @@ class AdminService {
   final FirestoreRepository _repository;
 
   Stream<List<User>> streamUsers() {
-    try {
-      return _repository.users
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) =>
-                snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_USERS_STREAM',
-          'Failed to load users.',
-          error,
-        );
-      });
-    } catch (error) {
-      return Stream.error(
-        _mapError('ADMIN_USERS_STREAM', 'Failed to load users.', error),
-      );
-    }
+    return _repository.users
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_USERS_STREAM',
+            message: 'Failed to stream users.',
+          );
+        });
   }
 
   Stream<List<PaymentRecord>> streamPayments() {
-    try {
-      return _repository.payments
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => PaymentRecord.fromMap(doc.id, doc.data()))
-                .toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_PAYMENTS_STREAM',
-          'Failed to load payments.',
-          error,
-        );
-      });
-    } catch (error) {
-      return Stream.error(
-        _mapError('ADMIN_PAYMENTS_STREAM', 'Failed to load payments.', error),
-      );
-    }
+    return _repository.payments
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => PaymentRecord.fromMap(doc.id, doc.data()))
+            .toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_PAYMENTS_STREAM',
+            message: 'Failed to stream payments.',
+          );
+        });
   }
 
   Stream<List<AdminNotification>> streamNotifications() {
-    try {
-      return _repository.adminNotifications
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => AdminNotification.fromMap(doc.id, doc.data()))
-                .toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_NOTIFICATIONS_STREAM',
-          'Failed to load notifications.',
-          error,
-        );
-      });
-    } catch (error) {
-      return Stream.error(
-        _mapError(
-          'ADMIN_NOTIFICATIONS_STREAM',
-          'Failed to load notifications.',
-          error,
-        ),
-      );
-    }
+    return _repository.adminNotifications
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AdminNotification.fromMap(doc.id, doc.data()))
+            .toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_NOTIFICATIONS_STREAM',
+            message: 'Failed to stream notifications.',
+          );
+        });
   }
 
   Stream<List<LegalDoc>> streamLegalDocs() {
-    try {
-      return _repository.legalDocs
-          .orderBy('updatedAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => LegalDoc.fromMap(doc.id, doc.data()))
-                .toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_LEGAL_DOCS_STREAM',
-          'Failed to load legal documents.',
-          error,
-        );
-      });
-    } catch (error) {
-      return Stream.error(
-        _mapError(
-          'ADMIN_LEGAL_DOCS_STREAM',
-          'Failed to load legal documents.',
-          error,
-        ),
-      );
-    }
+    return _repository.legalDocs
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => LegalDoc.fromMap(doc.id, doc.data())).toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_LEGAL_DOCS_STREAM',
+            message: 'Failed to stream legal documents.',
+          );
+        });
   }
 
-  AppError _mapError(String code, String message, Object error) {
-    if (error is AppError) return error;
+  AppError _wrapError(
+    Object error, {
+    required String code,
+    required String message,
+  }) {
+    if (error is AppError) {
+      return error;
+    }
     if (error is FirebaseException) {
       return AppError(
         code: 'FIRESTORE_${error.code.toUpperCase()}',
@@ -125,6 +86,10 @@ class AdminService {
         original: error,
       );
     }
-    return AppError(code: code, message: message, original: error);
+    return AppError(
+      code: code,
+      message: message,
+      original: error,
+    );
   }
 }
