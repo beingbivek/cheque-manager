@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'controllers/admin_controller.dart';
 import 'controllers/auth_controller.dart';
 import 'controllers/cheque_controller.dart';
 import 'routes/app_routes.dart';
@@ -20,6 +21,7 @@ class ChequeApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthController()),
+        ChangeNotifierProvider(create: (_) => AdminController()),
         ChangeNotifierProvider(create: (_) => SubscriptionController()),
         ChangeNotifierProxyProvider<AuthController, ChequeController>(
           create: (_) => ChequeController(),
