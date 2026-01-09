@@ -71,6 +71,46 @@ class AdminService {
         });
   }
 
+  Future<void> createNotification({
+    required String title,
+    required String message,
+  }) async {
+    try {
+      final doc = _repository.adminNotifications.doc();
+      await doc.set({
+        'title': title,
+        'message': message,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      throw _wrapError(
+        error,
+        code: 'ADMIN_CREATE_NOTIFICATION',
+        message: 'Failed to create notification.',
+      );
+    }
+  }
+
+  Future<void> updateLegalDoc({
+    required String docId,
+    required String title,
+    required String content,
+  }) async {
+    try {
+      await _repository.legalDocs.doc(docId).update({
+        'title': title,
+        'content': content,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      throw _wrapError(
+        error,
+        code: 'ADMIN_UPDATE_LEGAL_DOC',
+        message: 'Failed to update legal document.',
+      );
+    }
+  }
+
   AppError _wrapError(
     Object error, {
     required String code,
