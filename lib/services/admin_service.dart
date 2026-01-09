@@ -18,11 +18,13 @@ class AdminService {
         .snapshots()
         .map((snapshot) =>
             snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList())
-        .handleError((error) => _wrapError(
-              error,
-              code: 'ADMIN_USERS_STREAM',
-              message: 'Failed to stream users.',
-            ));
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_USERS_STREAM',
+            message: 'Failed to stream users.',
+          );
+        });
   }
 
   Stream<List<PaymentRecord>> streamPayments() {
@@ -31,11 +33,13 @@ class AdminService {
         .map((snapshot) => snapshot.docs
             .map((doc) => PaymentRecord.fromMap(doc.id, doc.data()))
             .toList())
-        .handleError((error) => _wrapError(
-              error,
-              code: 'ADMIN_PAYMENTS_STREAM',
-              message: 'Failed to stream payments.',
-            ));
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_PAYMENTS_STREAM',
+            message: 'Failed to stream payments.',
+          );
+        });
   }
 
   Stream<List<AdminNotification>> streamNotifications() {
@@ -44,11 +48,13 @@ class AdminService {
         .map((snapshot) => snapshot.docs
             .map((doc) => AdminNotification.fromMap(doc.id, doc.data()))
             .toList())
-        .handleError((error) => _wrapError(
-              error,
-              code: 'ADMIN_NOTIFICATIONS_STREAM',
-              message: 'Failed to stream notifications.',
-            ));
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_NOTIFICATIONS_STREAM',
+            message: 'Failed to stream notifications.',
+          );
+        });
   }
 
   Stream<List<LegalDoc>> streamLegalDocs() {
@@ -56,20 +62,22 @@ class AdminService {
         .snapshots()
         .map((snapshot) =>
             snapshot.docs.map((doc) => LegalDoc.fromMap(doc.id, doc.data())).toList())
-        .handleError((error) => _wrapError(
-              error,
-              code: 'ADMIN_LEGAL_DOCS_STREAM',
-              message: 'Failed to stream legal documents.',
-            ));
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_LEGAL_DOCS_STREAM',
+            message: 'Failed to stream legal documents.',
+          );
+        });
   }
 
-  void _wrapError(
+  AppError _wrapError(
     Object error, {
     required String code,
     required String message,
   }) {
     if (error is AppError) {
-      throw error;
+      return error;
     }
     if (error is FirebaseException) {
       throw AppError(
@@ -78,7 +86,7 @@ class AdminService {
         original: error,
       );
     }
-    throw AppError(
+    return AppError(
       code: code,
       message: message,
       original: error,
