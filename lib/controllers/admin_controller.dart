@@ -7,8 +7,7 @@ import '../models/user.dart';
 import '../services/admin_service.dart';
 
 class AdminController extends ChangeNotifier {
-  AdminController({AdminService? service})
-      : _service = service ?? AdminService();
+  AdminController({AdminService? service}) : _service = service ?? AdminService();
 
   final AdminService _service;
 
