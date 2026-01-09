@@ -19,4 +19,21 @@ class AdminController extends ChangeNotifier {
       _service.streamNotifications();
 
   Stream<List<LegalDoc>> streamLegalDocs() => _service.streamLegalDocs();
+
+  Future<void> createNotification({
+    required String title,
+    required String message,
+  }) =>
+      _service.createNotification(title: title, message: message);
+
+  Future<void> updateLegalDoc({
+    required String docId,
+    required String title,
+    required String content,
+  }) =>
+      _service.updateLegalDoc(
+        docId: docId,
+        title: title,
+        content: content,
+      );
 }
