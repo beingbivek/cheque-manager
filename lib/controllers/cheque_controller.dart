@@ -254,6 +254,116 @@ class ChequeController extends ChangeNotifier {
     }
   }
 
+  Future<void> addParty({
+    required String name,
+    String? phone,
+    String? notes,
+  }) async {
+    if (_user == null) {
+      _lastError = AppError(code: 'NO_USER', message: 'User not logged in.');
+      notifyListeners();
+      return;
+    }
+
+    _setLoading(true);
+    try {
+      _lastError = null;
+      final existing = await _partyService.findByName(
+        userId: _user!.uid,
+        name: name,
+      );
+      if (existing != null) {
+        throw AppError(
+          code: 'PARTY_EXISTS',
+          message: 'Party already exists.',
+        );
+      }
+      final created = await _partyService.createParty(
+        userId: _user!.uid,
+        name: name,
+      );
+      final updated = created.copyWith(
+        phone: phone,
+        notes: notes,
+        updatedAt: DateTime.now(),
+      );
+      if (phone != null || notes != null) {
+        await _partyService.updateParty(
+          partyId: updated.id,
+          updates: {
+            'phone': phone,
+            'notes': notes,
+            'updatedAt': DateTime.now(),
+          },
+        );
+      }
+      _parties = [..._parties, updated];
+      notifyListeners();
+    } on AppError catch (e) {
+      _lastError = e;
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> updateParty({
+    required String partyId,
+    required String name,
+    String? phone,
+    String? notes,
+    required PartyStatus status,
+  }) async {
+    final index = _parties.indexWhere((p) => p.id == partyId);
+    if (index == -1) {
+      _lastError = AppError(
+        code: 'PARTY_NOT_FOUND',
+        message: 'Party not found.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    _setLoading(true);
+    final current = _parties[index];
+    final updated = Party(
+      id: current.id,
+      userId: current.userId,
+      name: name,
+      phone: phone,
+      notes: notes,
+      status: status,
+      createdAt: current.createdAt,
+      updatedAt: DateTime.now(),
+    );
+
+    final optimistic = List<Party>.from(_parties);
+    optimistic[index] = updated;
+    _parties = optimistic;
+    notifyListeners();
+
+    try {
+      await _partyService.updateParty(
+        partyId: partyId,
+        updates: {
+          'name': name,
+          'phone': phone,
+          'notes': notes,
+          'status': status.name,
+          'updatedAt': DateTime.now(),
+        },
+      );
+    } on AppError catch (e) {
+      final reverted = List<Party>.from(_parties);
+      reverted[index] = current;
+      _parties = reverted;
+      _lastError = e;
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> refreshStatuses() async {
     if (_user == null) return;
     _setLoading(true);
