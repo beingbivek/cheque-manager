@@ -72,6 +72,23 @@ class ChequeService {
     }
   }
 
+  Future<void> updateNotificationSent({
+    required String chequeId,
+    required bool notificationSent,
+  }) async {
+    try {
+      await _collection
+          .doc(chequeId)
+          .update({'notificationSent': notificationSent});
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update notification flag.',
+        original: e,
+      );
+    }
+  }
+
   Future<void> updateChequeStatus({
     required String chequeId,
     required ChequeStatus status,
@@ -82,6 +99,21 @@ class ChequeService {
         'status': status.name,
         'updatedAt': updatedAt,
       });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update cheque.',
+        original: e,
+      );
+    }
+  }
+
+  Future<void> updateCheque({
+    required String chequeId,
+    required Map<String, dynamic> updates,
+  }) async {
+    try {
+      await _collection.doc(chequeId).update(updates);
     } on FirebaseException catch (e) {
       throw AppError(
         code: 'FIRESTORE_${e.code.toUpperCase()}',
