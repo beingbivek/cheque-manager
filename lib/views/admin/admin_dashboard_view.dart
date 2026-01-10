@@ -310,55 +310,176 @@ class _TicketsTab extends StatelessWidget {
         if (tickets.isEmpty) {
           return const _EmptyState(message: 'No tickets submitted yet.');
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: tickets.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final ticket = tickets[index];
-            return ListTile(
-              title: Text(ticket.title),
-              subtitle: Text(
-                'User: ${ticket.userId}\n${ticket.message}',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: DropdownButton<TicketStatus>(
-                value: ticket.status,
-                onChanged: (value) async {
-                  if (value == null) return;
-                  try {
-                    await controller.updateTicketStatus(
-                      ticketId: ticket.id,
-                      status: value,
-                    );
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ticket set to ${value.name}.')),
-                    );
-                  } on AppError catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content:
-                            Text('${e.message} (Code: ${e.code})'),
-                      ),
-                    );
-                  }
-                },
-                items: TicketStatus.values
-                    .map(
-                      (status) => DropdownMenuItem(
-                        value: status,
-                        child: Text(status.name),
-                      ),
-                    )
-                    .toList(),
-              ),
-            );
-          },
+
+        return _TicketsBody(
+          controller: controller,
+          tickets: tickets,
         );
       },
+    );
+  }
+}
+
+class _TicketsBody extends StatefulWidget {
+  const _TicketsBody({
+    required this.controller,
+    required this.tickets,
+  });
+
+  final AdminController controller;
+  final List<Ticket> tickets;
+
+  @override
+  State<_TicketsBody> createState() => _TicketsBodyState();
+}
+
+class _TicketsBodyState extends State<_TicketsBody> {
+  TicketStatus? _statusFilter;
+
+  void _exportCsv(List<Ticket> tickets) {
+    final buffer = StringBuffer()
+      ..writeln('ticketId,userId,title,status,createdAt');
+    for (final ticket in tickets) {
+      final createdAt = ticket.createdAt == null
+          ? ''
+          : _formatDate(ticket.createdAt!);
+      buffer.writeln(
+        '${ticket.id},${ticket.userId},${ticket.title},'
+        '${ticket.status.name},$createdAt',
+      );
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tickets copied as CSV.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tickets = widget.tickets
+        .where((ticket) => _statusFilter == null || ticket.status == _statusFilter)
+        .toList();
+
+    final openCount =
+        widget.tickets.where((t) => t.status == TicketStatus.open).length;
+    final progressCount =
+        widget.tickets.where((t) => t.status == TicketStatus.inProgress).length;
+    final resolvedCount =
+        widget.tickets.where((t) => t.status == TicketStatus.resolved).length;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<TicketStatus?>(
+                      value: _statusFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'Status filter',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('All statuses')),
+                        DropdownMenuItem(
+                          value: TicketStatus.open,
+                          child: Text('Open'),
+                        ),
+                        DropdownMenuItem(
+                          value: TicketStatus.inProgress,
+                          child: Text('In Progress'),
+                        ),
+                        DropdownMenuItem(
+                          value: TicketStatus.resolved,
+                          child: Text('Resolved'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _statusFilter = value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: tickets.isEmpty ? null : () => _exportCsv(tickets),
+                    icon: const Icon(Icons.download),
+                    label: const Text('Export CSV'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _SummaryChip(label: 'Open', count: openCount),
+                  _SummaryChip(label: 'In Progress', count: progressCount),
+                  _SummaryChip(label: 'Resolved', count: resolvedCount),
+                  _SummaryChip(label: 'Filtered', count: tickets.length),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: tickets.isEmpty
+              ? const _EmptyState(message: 'No tickets match filters.')
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: tickets.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final ticket = tickets[index];
+                    return ListTile(
+                      title: Text(ticket.title),
+                      subtitle: Text(
+                        'User: ${ticket.userId}\n${ticket.message}',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: DropdownButton<TicketStatus>(
+                        value: ticket.status,
+                        onChanged: (value) async {
+                          if (value == null) return;
+                          try {
+                            await widget.controller.updateTicketStatus(
+                              ticketId: ticket.id,
+                              status: value,
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Ticket set to ${value.name}.'),
+                              ),
+                            );
+                          } on AppError catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '${e.message} (Code: ${e.code})',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        items: TicketStatus.values
+                            .map(
+                              (status) => DropdownMenuItem(
+                                value: status,
+                                child: Text(status.name),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
