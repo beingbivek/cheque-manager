@@ -28,6 +28,14 @@ class NotificationService {
     return pending;
   }
 
+  String? _pendingChequeId;
+
+  String? consumePendingChequeId() {
+    final pending = _pendingChequeId;
+    _pendingChequeId = null;
+    return pending;
+  }
+
   Future<void> init() async {
     // Android init
     const AndroidInitializationSettings androidInit =
@@ -94,12 +102,6 @@ class NotificationService {
     final navState = NavigationService.navigatorKey.currentState;
     if (navState == null) {
       _pendingChequeId = chequeId;
-      return;
-    }
-
-    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) {
-      navState.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
       return;
     }
 
