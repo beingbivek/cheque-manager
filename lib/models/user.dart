@@ -71,6 +71,35 @@ class User {
     };
   }
 
+  User copyWith({
+    String? uid,
+    String? email,
+    String? displayName,
+    String? role,
+    UserTier? tier,
+    UserStatus? status,
+    int? partyCount,
+    int? chequeCount,
+    int? notificationLeadDays,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return User(
+      uid: uid ?? this.uid,
+      email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      role: role ?? this.role,
+      tier: tier ?? this.tier,
+      status: status ?? this.status,
+      partyCount: partyCount ?? this.partyCount,
+      chequeCount: chequeCount ?? this.chequeCount,
+      notificationLeadDays:
+          notificationLeadDays ?? this.notificationLeadDays,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   static UserTier _tierFromString(String value) {
     switch (value) {
       case 'pro':
