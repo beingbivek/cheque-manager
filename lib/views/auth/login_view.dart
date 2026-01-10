@@ -28,6 +28,7 @@ class _LoginViewState extends State<LoginView> {
       if (auth.isLoggedIn) {
         final user = auth.currentUser!;
         if (user.role == 'admin') {
+          NotificationService.instance.clearPendingPayload();
           Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
         } else {
           Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
@@ -94,6 +95,13 @@ class _LoginViewState extends State<LoginView> {
               },
               icon: const Icon(Icons.login),
               label: const Text('Sign in with Google'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.termsPrivacy);
+              },
+              child: const Text('Terms & Privacy'),
             ),
           ],
         ),
