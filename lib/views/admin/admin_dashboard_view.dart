@@ -8,6 +8,8 @@ import '../../models/app_error.dart';
 import '../../models/legal_doc.dart';
 import '../../models/payment_record.dart';
 import '../../models/user.dart';
+import 'admin_legal_doc_dialog.dart';
+import 'admin_notification_dialog.dart';
 
 class AdminDashboardView extends StatelessWidget {
   const AdminDashboardView({super.key});
@@ -164,25 +166,47 @@ class _NotificationsTab extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         final notifications = snapshot.data!;
-        if (notifications.isEmpty) {
-          return const _EmptyState(message: 'No admin notifications yet.');
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: notifications.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final notification = notifications[index];
-            return ListTile(
-              title: Text(notification.title),
-              subtitle: Text(notification.message),
-              trailing: Text(
-                notification.createdAt == null
-                    ? 'Unknown'
-                    : _formatDate(notification.createdAt!),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await showDialog<bool>(
+                      context: context,
+                      builder: (_) => const AdminNotificationDialog(),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Notification'),
+                ),
               ),
-            );
-          },
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: notifications.isEmpty
+                  ? const _EmptyState(message: 'No admin notifications yet.')
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: notifications.length,
+                      separatorBuilder: (_, __) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final notification = notifications[index];
+                        return ListTile(
+                          title: Text(notification.title),
+                          subtitle: Text(notification.message),
+                          trailing: Text(
+                            notification.createdAt == null
+                                ? 'Unknown'
+                                : _formatDate(notification.createdAt!),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         );
       },
     );
@@ -222,8 +246,24 @@ class _LegalDocsTab extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
-              trailing: Text(
-                doc.updatedAt == null ? 'Unknown' : _formatDate(doc.updatedAt!),
+              trailing: Wrap(
+                spacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    doc.updatedAt == null ? 'Unknown' : _formatDate(doc.updatedAt!),
+                  ),
+                  IconButton(
+                    tooltip: 'Edit',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AdminLegalDocDialog(doc: doc),
+                      );
+                    },
+                  ),
+                ],
               ),
             );
           },
