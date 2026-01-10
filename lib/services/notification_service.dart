@@ -20,6 +20,14 @@ class NotificationService {
       'Notifications for cheques that are due soon.';
   static const String _pendingPayloadKey = 'pending_notification_payload';
 
+  String? _pendingChequeId;
+
+  String? consumePendingChequeId() {
+    final pending = _pendingChequeId;
+    _pendingChequeId = null;
+    return pending;
+  }
+
   Future<void> init() async {
     // Android init
     const AndroidInitializationSettings androidInit =
@@ -36,13 +44,28 @@ class NotificationService {
         final payload = response.payload;
         if (payload == null) return;
 
-        await _persistPayload(payload);
-        final chequeId = _payloadToChequeId(payload);
-        if (chequeId != null) {
-          await _handleNotificationTap(chequeId);
+        final parts = Uri.splitQueryString(payload);
+        final route = parts['route'];
+        final id = parts['id'];
+
+        if (route == AppRoutes.chequeDetails && id != null) {
+          _handleNotificationTap(id);
         }
       },
     );
+
+    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp ?? false) {
+      final payload = launchDetails?.notificationResponse?.payload;
+      if (payload != null) {
+        final parts = Uri.splitQueryString(payload);
+        final route = parts['route'];
+        final id = parts['id'];
+        if (route == AppRoutes.chequeDetails && id != null) {
+          _pendingChequeId = id;
+        }
+      }
+    }
 
     // Android channel
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -69,7 +92,10 @@ class NotificationService {
 
   Future<void> _handleNotificationTap(String chequeId) async {
     final navState = NavigationService.navigatorKey.currentState;
-    if (navState == null) return;
+    if (navState == null) {
+      _pendingChequeId = chequeId;
+      return;
+    }
 
     final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) {

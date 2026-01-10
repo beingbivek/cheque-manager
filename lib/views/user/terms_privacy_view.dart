@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/app_error.dart';
 import '../../models/legal_doc.dart';
 import '../../services/legal_doc_service.dart';
 
@@ -8,97 +9,83 @@ class TermsPrivacyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final service = LegalDocService();
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Terms & Privacy'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Terms'),
-              Tab(text: 'Privacy'),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            _LegalDocPanel(
-              title: 'Terms of Service',
-              docStream: service.streamLatestPublishedDoc('terms'),
-            ),
-            _LegalDocPanel(
-              title: 'Privacy Policy',
-              docStream: service.streamLatestPublishedDoc('privacy'),
-            ),
-          ],
-        ),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Terms & Privacy')),
+      body: StreamBuilder<List<LegalDoc>>(
+        stream: LegalDocService().streamPublishedDocs(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _ErrorState(error: snapshot.error);
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data!;
+          if (docs.isEmpty) {
+            return const Center(child: Text('No published documents yet.'));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${doc.docType.toUpperCase()} · ${doc.title}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Version ${doc.version} · Published ${_formatDate(doc.publishedAt)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(doc.content),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
 
-class _LegalDocPanel extends StatelessWidget {
-  const _LegalDocPanel({
-    required this.title,
-    required this.docStream,
-  });
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.error});
 
-  final String title;
-  final Stream<LegalDoc?> docStream;
+  final Object? error;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<LegalDoc?>(
-      stream: docStream,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              'Unable to load $title.',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          );
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final doc = snapshot.data;
-        if (doc == null) {
-          return Center(
-            child: Text(
-              'No published $title yet.',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          );
-        }
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(
-              doc.title,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Version ${doc.version}'
-              '${doc.publishedAt == null ? '' : ' · Published ${_formatDate(doc.publishedAt!)}'}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            SelectableText(
-              doc.content,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        );
-      },
+    final normalized = _normalizeError(error);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          '${normalized.message}\nCode: ${normalized.code}',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  AppError _normalizeError(Object? error) {
+    if (error is AppError) return error;
+    return AppError(
+      code: 'TERMS_LOAD_ERROR',
+      message: 'Unable to load legal documents.',
+      original: error,
     );
   }
 }
 
-String _formatDate(DateTime value) {
-  return '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
+String _formatDate(DateTime? date) {
+  if (date == null) return 'unknown';
+  final local = date.toLocal();
+  return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
+      '${local.day.toString().padLeft(2, '0')}';
 }

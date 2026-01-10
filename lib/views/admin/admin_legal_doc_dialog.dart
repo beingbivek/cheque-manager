@@ -19,18 +19,19 @@ class _AdminLegalDocDialogState extends State<AdminLegalDocDialog> {
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
   late final TextEditingController _versionController;
+  bool _published = false;
 
   AppError? _error;
   bool _submitting = false;
-  bool _isPublished = false;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.doc.title);
     _contentController = TextEditingController(text: widget.doc.content);
-    _versionController = TextEditingController(text: widget.doc.version);
-    _isPublished = widget.doc.publishedAt != null;
+    _versionController =
+        TextEditingController(text: widget.doc.version.toString());
+    _published = widget.doc.publishedAt != null;
   }
 
   @override
@@ -49,15 +50,12 @@ class _AdminLegalDocDialogState extends State<AdminLegalDocDialog> {
     });
 
     try {
-      final publishedAt = _isPublished
-          ? widget.doc.publishedAt ?? DateTime.now()
-          : null;
       await context.read<AdminController>().updateLegalDoc(
             docId: widget.doc.id,
             title: _titleController.text.trim(),
             content: _contentController.text.trim(),
-            version: _versionController.text.trim(),
-            publishedAt: publishedAt,
+            version: int.parse(_versionController.text.trim()),
+            publishedAt: _published ? DateTime.now() : null,
           );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -106,25 +104,24 @@ class _AdminLegalDocDialogState extends State<AdminLegalDocDialog> {
               TextFormField(
                 controller: _versionController,
                 decoration: const InputDecoration(labelText: 'Version'),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Enter version'
-                    : null,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  final parsed = int.tryParse(value ?? '');
+                  if (parsed == null || parsed <= 0) {
+                    return 'Enter a valid version';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Published'),
-                subtitle: Text(
-                  _isPublished
-                      ? 'Published on ${_formatDate(widget.doc.publishedAt ?? DateTime.now())}'
-                      : 'Not published',
-                ),
-                value: _isPublished,
-                onChanged: _submitting
-                    ? null
-                    : (value) {
-                        setState(() => _isPublished = value);
-                      },
+                value: _published,
+                onChanged: (value) {
+                  if (_submitting) return;
+                  setState(() => _published = value);
+                },
               ),
             ],
           ),
@@ -148,12 +145,6 @@ class _AdminLegalDocDialogState extends State<AdminLegalDocDialog> {
       ],
     );
   }
-}
-
-String _formatDate(DateTime value) {
-  return '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
 }
 
 class _ErrorBanner extends StatelessWidget {

@@ -5,7 +5,7 @@ class LegalDoc {
   final String docType;
   final String title;
   final String content;
-  final String version;
+  final int version;
   final DateTime? publishedAt;
   final DateTime? updatedAt;
 
@@ -32,7 +32,7 @@ class LegalDoc {
       docType: data['type'] ?? 'document',
       title: data['title'] ?? 'Untitled',
       content: data['content'] ?? '',
-      version: data['version']?.toString() ?? '1.0',
+      version: (data['version'] ?? 1) as int,
       publishedAt: _toDate(data['publishedAt']),
       updatedAt: _toDate(data['updatedAt']),
     );

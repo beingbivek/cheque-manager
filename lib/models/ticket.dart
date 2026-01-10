@@ -1,31 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum TicketStatus { open, pending, resolved, closed }
+enum TicketStatus { open, inProgress, resolved }
 
 class Ticket {
+  final String id;
+  final String userId;
+  final String title;
+  final String message;
+  final TicketStatus status;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
   Ticket({
     required this.id,
     required this.userId,
-    required this.subject,
-    required this.description,
-    required this.category,
-    required this.priority,
+    required this.title,
+    required this.message,
     required this.status,
-    required this.requesterEmail,
     required this.createdAt,
     required this.updatedAt,
   });
-
-  final String id;
-  final String userId;
-  final String subject;
-  final String description;
-  final String category;
-  final String priority;
-  final TicketStatus status;
-  final String requesterEmail;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
 
   static DateTime? _toDate(dynamic raw) {
     if (raw == null) return null;
@@ -38,40 +32,20 @@ class Ticket {
     return Ticket(
       id: id,
       userId: data['userId'] ?? '',
-      subject: data['subject'] ?? 'Support ticket',
-      description: data['description'] ?? '',
-      category: data['category'] ?? 'general',
-      priority: data['priority'] ?? 'normal',
+      title: data['title'] ?? 'Untitled',
+      message: data['message'] ?? '',
       status: _statusFromString(data['status'] ?? 'open'),
-      requesterEmail: data['requesterEmail'] ?? '',
       createdAt: _toDate(data['createdAt']),
       updatedAt: _toDate(data['updatedAt']),
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'subject': subject,
-      'description': description,
-      'category': category,
-      'priority': priority,
-      'status': status.name,
-      'requesterEmail': requesterEmail,
-      'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
-      'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
-    };
-  }
-
   static TicketStatus _statusFromString(String value) {
     switch (value) {
-      case 'pending':
-        return TicketStatus.pending;
+      case 'inProgress':
+        return TicketStatus.inProgress;
       case 'resolved':
         return TicketStatus.resolved;
-      case 'closed':
-        return TicketStatus.closed;
-      case 'open':
       default:
         return TicketStatus.open;
     }

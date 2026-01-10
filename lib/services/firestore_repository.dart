@@ -15,4 +15,5 @@ class FirestoreRepository {
       _db.collection('admin_notifications');
   CollectionReference<Map<String, dynamic>> get legalDocs =>
       _db.collection('legal_docs');
+  CollectionReference<Map<String, dynamic>> get tickets => _db.collection('tickets');
 }

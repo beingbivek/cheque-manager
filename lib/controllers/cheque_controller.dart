@@ -23,6 +23,7 @@ class ChequeController extends ChangeNotifier {
   void setUser(User? user) {
     _user = user;
     if (user != null) {
+      _nearThresholdDays = user.notificationLeadDays;
       loadData();
     } else {
       _cheques = [];
@@ -125,10 +126,44 @@ class ChequeController extends ChangeNotifier {
     _setLoading(true);
     try {
       _lastError = null;
+      _nearThresholdDays = _user?.notificationLeadDays ?? _nearThresholdDays;
       _parties = await _partyService.getPartiesForUser(_user!.uid);
       _cheques = await _chequeService.getChequesForUser(_user!.uid);
 
       // auto adjust statuses based on current date
+      await refreshStatuses();
+    } on AppError catch (e) {
+      _lastError = e;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> updateNotificationLeadDays(int days) async {
+    if (_user == null) return;
+    _setLoading(true);
+    try {
+      _lastError = null;
+      await _userService.updateNotificationLeadDays(
+        userId: _user!.uid,
+        leadDays: days,
+      );
+      _nearThresholdDays = days;
+
+      for (final cheque in _cheques) {
+        if (cheque.status == ChequeStatus.cashed) continue;
+        await _chequeService.updateNotificationSent(
+          chequeId: cheque.id,
+          notificationSent: false,
+        );
+      }
+
+      _cheques = _cheques
+          .map((cheque) => cheque.status == ChequeStatus.cashed
+              ? cheque
+              : cheque.copyWith(notificationSent: false))
+          .toList();
+
       await refreshStatuses();
     } on AppError catch (e) {
       _lastError = e;
@@ -331,9 +366,10 @@ class ChequeController extends ChangeNotifier {
     }
   }
 
-  Future<void> updateChequeDetails({
+  Future<void> updateCheque({
     required String chequeId,
     required String partyName,
+    required String chequeNumber,
     required double amount,
     required DateTime date,
     required ChequeStatus status,
@@ -349,42 +385,39 @@ class ChequeController extends ChangeNotifier {
     }
 
     final current = _cheques[index];
-    final nextStatus = status == ChequeStatus.cashed
-        ? ChequeStatus.cashed
-        : _calculateStatus(date, cashed: false);
-    final resetNotification = nextStatus != ChequeStatus.cashed &&
-        (current.date != date || current.status == ChequeStatus.cashed);
-    final notificationSent =
-        resetNotification ? false : current.notificationSent;
-
     final now = DateTime.now();
-    final optimistic = current.copyWith(
+    final recalculatedStatus =
+        status == ChequeStatus.cashed ? status : _calculateStatus(date, cashed: false);
+    final updatedCheque = current.copyWith(
       partyName: partyName,
+      chequeNumber: chequeNumber,
       amount: amount,
       date: date,
-      status: nextStatus,
-      notificationSent: notificationSent,
+      status: recalculatedStatus,
+      notificationSent: false,
       updatedAt: now,
     );
 
-    final updated = List<Cheque>.from(_cheques);
-    updated[index] = optimistic;
-    _cheques = updated;
+    final optimistic = List<Cheque>.from(_cheques);
+    optimistic[index] = updatedCheque;
+    _cheques = optimistic;
     _lastError = null;
     notifyListeners();
 
     try {
-      await _chequeService.updateChequeDetails(
+      await _chequeService.updateCheque(
         chequeId: chequeId,
-        partyName: partyName,
-        amount: amount,
-        date: date,
-        status: nextStatus,
-        notificationSent: notificationSent,
-        updatedAt: now,
+        updates: {
+          'partyName': partyName,
+          'chequeNumber': chequeNumber,
+          'amount': amount,
+          'date': date,
+          'status': recalculatedStatus.name,
+          'notificationSent': false,
+          'updatedAt': now,
+        },
       );
-      _lastError = null;
-      notifyListeners();
+      await refreshStatuses();
     } on AppError catch (e) {
       final reverted = List<Cheque>.from(_cheques);
       reverted[index] = current;

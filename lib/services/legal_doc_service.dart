@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/app_error.dart';
 import '../models/legal_doc.dart';
 import 'firestore_repository.dart';
 
@@ -9,19 +10,30 @@ class LegalDocService {
 
   final FirestoreRepository _repository;
 
-  Stream<LegalDoc?> streamLatestPublishedDoc(String docType) {
+  Stream<List<LegalDoc>> streamPublishedDocs() {
     return _repository.legalDocs
-        .where('type', isEqualTo: docType)
-        .where('publishedAt', isGreaterThan: Timestamp(0, 0))
-        .orderBy('publishedAt', descending: true)
-        .limit(1)
+        .where('publishedAt', isNull: false)
         .snapshots()
-        .map((snapshot) {
-      if (snapshot.docs.isEmpty) {
-        return null;
-      }
-      final doc = snapshot.docs.first;
-      return LegalDoc.fromMap(doc.id, doc.data());
-    });
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => LegalDoc.fromMap(doc.id, doc.data())).toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(error);
+        });
+  }
+
+  AppError _wrapError(Object error) {
+    if (error is AppError) return error;
+    if (error is FirebaseException) {
+      return AppError(
+        code: 'FIRESTORE_${error.code.toUpperCase()}',
+        message: 'Failed to load legal documents.',
+        original: error,
+      );
+    }
+    return AppError(
+      code: 'LEGAL_DOCS_UNKNOWN',
+      message: 'Unknown error while loading legal documents.',
+      original: error,
+    );
   }
 }

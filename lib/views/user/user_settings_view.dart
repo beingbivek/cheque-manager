@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../controllers/auth_controller.dart';
 import '../../controllers/cheque_controller.dart';
+import '../../models/app_error.dart';
 
 class UserSettingsView extends StatefulWidget {
   const UserSettingsView({super.key});
@@ -11,86 +13,112 @@ class UserSettingsView extends StatefulWidget {
 }
 
 class _UserSettingsViewState extends State<UserSettingsView> {
-  static const int _minDays = 1;
-  static const int _maxDays = 30;
-
-  bool _initialized = false;
+  AppError? _error;
+  bool _saving = false;
   int _leadDays = 3;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_initialized) return;
-    final controller = context.read<ChequeController>();
-    _leadDays = controller.nearThresholdDays;
-    _initialized = true;
+    final user = context.read<AuthController>().currentUser;
+    if (user != null) {
+      _leadDays = user.notificationLeadDays;
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await context.read<ChequeController>().updateNotificationLeadDays(_leadDays);
+      await context.read<AuthController>().reloadUserFromFirestore();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Settings saved.')),
+      );
+    } on AppError catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ChequeController>();
-
+    final options = List.generate(14, (index) => index + 1);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('User Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Choose how many days in advance you want to be notified.',
-              style: TextStyle(fontSize: 16),
+            if (_error != null)
+              Card(
+                color: Colors.red.shade50,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${_error!.message}\nCode: ${_error!.code}',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Text(
+              'Cheque notification lead time',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int>(
+              value: _leadDays,
+              items: options
+                  .map((value) => DropdownMenuItem(
+                        value: value,
+                        child: Text('$value day${value == 1 ? '' : 's'} before'),
+                      ))
+                  .toList(),
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() => _leadDays = value);
+                    },
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'Lead time',
+              ),
             ),
             const SizedBox(height: 16),
-            Text(
-              '$_leadDays day${_leadDays == 1 ? '' : 's'} before',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            Slider(
-              min: _minDays.toDouble(),
-              max: _maxDays.toDouble(),
-              divisions: _maxDays - _minDays,
-              label: '$_leadDays',
-              value: _leadDays.toDouble().clamp(
-                    _minDays.toDouble(),
-                    _maxDays.toDouble(),
-                  ),
-              onChanged: controller.isLoading
-                  ? null
-                  : (value) => setState(() => _leadDays = value.round()),
-            ),
-            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: controller.isLoading
-                    ? null
-                    : () async {
-                        await controller.updateNotificationLeadDays(_leadDays);
-                        if (!context.mounted) return;
-                        if (controller.lastError == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Notification lead time updated.'),
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(controller.lastError!.message),
-                            ),
-                          );
-                        }
-                      },
-                child: controller.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Save'),
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const CircularProgressIndicator()
+                    : const Text('Save settings'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pushNamed(context, '/terms-privacy'),
+                child: const Text('View Terms & Privacy'),
               ),
             ),
           ],

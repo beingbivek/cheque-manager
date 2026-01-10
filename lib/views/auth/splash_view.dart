@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../routes/app_routes.dart';
 import '../../services/notification_service.dart';
+import '../../services/navigation_service.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
@@ -53,10 +54,23 @@ class _SplashViewState extends State<SplashView> {
           }
         }
         Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+        _openPendingChequeDetail();
       }
     } else {
       Navigator.pushReplacementNamed(context, AppRoutes.login);
     }
+  }
+
+  void _openPendingChequeDetail() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      final chequeId = NotificationService.instance.consumePendingChequeId();
+      if (chequeId == null) return;
+      final navState = NavigationService.navigatorKey.currentState;
+      navState?.pushNamed(
+        AppRoutes.chequeDetails,
+        arguments: chequeId,
+      );
+    });
   }
 
   @override

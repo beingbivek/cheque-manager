@@ -26,7 +26,7 @@ class User {
     required this.status,
     required this.partyCount,
     required this.chequeCount,
-    this.notificationLeadDays = 3,
+    required this.notificationLeadDays,
     this.createdAt,
     this.updatedAt,
   });
