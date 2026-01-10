@@ -23,6 +23,7 @@ class ChequeController extends ChangeNotifier {
 
   void setUser(User? user) {
     _user = user;
+    _nearThresholdDays = user?.notificationLeadDays ?? 3;
     if (user != null) {
       loadData();
     } else {
@@ -76,9 +77,50 @@ class ChequeController extends ChangeNotifier {
     return 'Unknown';
   }
 
-  void setNearThresholdDays(int days) {
-    _nearThresholdDays = days;
-    notifyListeners();
+  Future<void> updateNotificationLeadDays(int days) async {
+    if (_user == null) {
+      _lastError = AppError(
+        code: 'NO_USER',
+        message: 'User not logged in.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    if (days < 1) {
+      _lastError = AppError(
+        code: 'INVALID_LEAD_DAYS',
+        message: 'Lead time must be at least 1 day.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    _setLoading(true);
+    try {
+      _lastError = null;
+      await _userService.updateNotificationLeadDays(
+        userId: _user!.uid,
+        days: days,
+      );
+
+      _nearThresholdDays = days;
+      _user = _user!.copyWith(notificationLeadDays: days);
+
+      await _chequeService.resetNotificationsForUser(_user!.uid);
+      _cheques = _cheques
+          .map((c) => c.copyWith(notificationSent: false))
+          .toList();
+      notifyListeners();
+    } on AppError catch (e) {
+      _lastError = e;
+      notifyListeners();
+      return;
+    } finally {
+      _setLoading(false);
+    }
+
+    await refreshStatuses();
   }
 
   Future<void> loadData() async {

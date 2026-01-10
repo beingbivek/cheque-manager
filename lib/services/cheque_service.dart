@@ -90,4 +90,28 @@ class ChequeService {
       );
     }
   }
+
+  Future<void> resetNotificationsForUser(String userId) async {
+    try {
+      final snapshot =
+          await _collection.where('userId', isEqualTo: userId).get();
+      if (snapshot.docs.isEmpty) return;
+
+      final batch = _collection.firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.update(doc.reference, {
+          'notificationSent': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to reset notification flags.',
+        original: e,
+      );
+    }
+  }
 }

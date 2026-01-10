@@ -74,4 +74,22 @@ class UserService {
       );
     }
   }
+
+  Future<void> updateNotificationLeadDays({
+    required String userId,
+    required int days,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'notificationLeadDays': days,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update notification lead time.',
+        original: e,
+      );
+    }
+  }
 }
