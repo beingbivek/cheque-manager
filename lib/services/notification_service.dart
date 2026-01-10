@@ -60,6 +60,14 @@ class NotificationService {
     return pending;
   }
 
+  String? _pendingChequeId;
+
+  String? consumePendingChequeId() {
+    final pending = _pendingChequeId;
+    _pendingChequeId = null;
+    return pending;
+  }
+
   Future<void> init() async {
     // Android init
     const AndroidInitializationSettings androidInit =
