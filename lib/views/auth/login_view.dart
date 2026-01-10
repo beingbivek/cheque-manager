@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../routes/app_routes.dart';
 import '../../models/app_error.dart';
+import '../../services/navigation_service.dart';
+import '../../services/notification_service.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -29,6 +31,7 @@ class _LoginViewState extends State<LoginView> {
           Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
         } else {
           Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+          _openPendingChequeDetail();
         }
       }
     });
@@ -97,6 +100,18 @@ class _LoginViewState extends State<LoginView> {
       ),
     );
   }
+}
+
+void _openPendingChequeDetail() {
+  Future.delayed(const Duration(milliseconds: 300), () {
+    final chequeId = NotificationService.instance.consumePendingChequeId();
+    if (chequeId == null) return;
+    final navState = NavigationService.navigatorKey.currentState;
+    navState?.pushNamed(
+      AppRoutes.chequeDetails,
+      arguments: chequeId,
+    );
+  });
 }
 
 class _ErrorBanner extends StatelessWidget {

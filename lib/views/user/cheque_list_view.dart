@@ -53,6 +53,11 @@ class _ChequeListViewState extends State<ChequeListView> {
           ),
           actions: [
             IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/settings'),
+            ),
+            IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => controller.refreshStatuses(),
             ),
