@@ -276,10 +276,21 @@ class _LegalDocsTab extends StatelessWidget {
             final doc = docs[index];
             return ListTile(
               title: Text('${doc.docType.toUpperCase()} · ${doc.title}'),
-              subtitle: Text(
-                doc.content,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    doc.content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Version ${doc.version} · '
+                    '${doc.publishedAt == null ? 'Unpublished' : 'Published ${_formatDate(doc.publishedAt!)}'}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
               trailing: Wrap(
                 spacing: 12,

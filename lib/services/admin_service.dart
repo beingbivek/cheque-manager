@@ -186,12 +186,16 @@ class AdminService {
     required String docId,
     required String title,
     required String content,
+    required String version,
+    required DateTime? publishedAt,
   }) async {
     try {
       await _repository.legalDocs.doc(docId).set(
         {
           'title': title,
           'content': content,
+          'version': version,
+          'publishedAt': publishedAt == null ? null : Timestamp.fromDate(publishedAt),
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),

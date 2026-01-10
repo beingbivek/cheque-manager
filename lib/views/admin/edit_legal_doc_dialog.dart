@@ -18,19 +18,24 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
+  late final TextEditingController _versionController;
   bool _isSaving = false;
+  bool _isPublished = false;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.doc.title);
     _contentController = TextEditingController(text: widget.doc.content);
+    _versionController = TextEditingController(text: widget.doc.version);
+    _isPublished = widget.doc.publishedAt != null;
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _versionController.dispose();
     super.dispose();
   }
 
@@ -42,10 +47,15 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
     final controller = context.read<AdminController>();
 
     try {
+      final publishedAt = _isPublished
+          ? widget.doc.publishedAt ?? DateTime.now()
+          : null;
       await controller.updateLegalDoc(
         docId: widget.doc.id,
         title: _titleController.text.trim(),
         content: _contentController.text.trim(),
+        version: _versionController.text.trim(),
+        publishedAt: publishedAt,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -96,6 +106,35 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
                         ? 'Content is required'
                         : null,
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _versionController,
+                decoration: const InputDecoration(
+                  labelText: 'Version',
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.next,
+                validator: (value) =>
+                    value == null || value.trim().isEmpty
+                        ? 'Version is required'
+                        : null,
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Published'),
+                subtitle: Text(
+                  _isPublished
+                      ? 'Published on ${_formatDate(widget.doc.publishedAt ?? DateTime.now())}'
+                      : 'Not published',
+                ),
+                value: _isPublished,
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        setState(() => _isPublished = value);
+                      },
+              ),
             ],
           ),
         ),
@@ -118,4 +157,10 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
       ],
     );
   }
+}
+
+String _formatDate(DateTime value) {
+  return '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
 }

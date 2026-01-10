@@ -92,6 +92,13 @@ class _LoginViewState extends State<LoginView> {
               icon: const Icon(Icons.login),
               label: const Text('Sign in with Google'),
             ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.termsPrivacy);
+              },
+              child: const Text('Terms & Privacy'),
+            ),
           ],
         ),
       ),
