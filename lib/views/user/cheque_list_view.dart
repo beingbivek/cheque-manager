@@ -113,6 +113,32 @@ class _ChequeListViewState extends State<ChequeListView> {
                 onChanged: _onSearchChanged,
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _SummaryChip(
+                    label: 'Cashed',
+                    count: sections[ChequeStatus.cashed]?.length ?? 0,
+                  ),
+                  _SummaryChip(
+                    label: 'Near',
+                    count: sections[ChequeStatus.near]?.length ?? 0,
+                  ),
+                  _SummaryChip(
+                    label: 'Valid',
+                    count: sections[ChequeStatus.valid]?.length ?? 0,
+                  ),
+                  _SummaryChip(
+                    label: 'Expired',
+                    count: sections[ChequeStatus.expired]?.length ?? 0,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
             Expanded(
               child: controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -191,8 +217,29 @@ class _ChequeList extends StatelessWidget {
             onPressed: () =>
                 controller.markAsCashed(c.id),
           ),
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              '/cheque-details',
+              arguments: c.id,
+            );
+          },
         );
       },
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  final String label;
+  final int count;
+
+  const _SummaryChip({required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text('$label: $count'),
     );
   }
 }
