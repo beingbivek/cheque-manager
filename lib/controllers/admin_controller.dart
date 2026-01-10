@@ -16,6 +16,22 @@ class AdminController extends ChangeNotifier {
 
   Stream<List<PaymentRecord>> streamPayments() => _service.streamPayments();
 
+  Stream<List<Ticket>> streamTickets() => _service.streamTickets();
+
+  Future<List<PaymentRecord>> fetchFilteredPayments({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? provider,
+    String? plan,
+  }) {
+    return _service.fetchFilteredPayments(
+      startDate: startDate,
+      endDate: endDate,
+      provider: provider,
+      plan: plan,
+    );
+  }
+
   Stream<List<AdminNotification>> streamNotifications() =>
       _service.streamNotifications();
 

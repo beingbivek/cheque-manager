@@ -4,19 +4,175 @@ import 'package:provider/provider.dart';
 import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/cheque.dart';
+import '../../routes/app_routes.dart';
+import '../common/error_screen_view.dart';
 
-class ChequeDetailView extends StatelessWidget {
+class ChequeDetailView extends StatefulWidget {
   final String chequeId;
 
   const ChequeDetailView({super.key, required this.chequeId});
 
   @override
+  State<ChequeDetailView> createState() => _ChequeDetailViewState();
+}
+
+class _ChequeDetailViewState extends State<ChequeDetailView> {
+  final _formKey = GlobalKey<FormState>();
+  final _partyCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+
+  DateTime? _chequeDate;
+  ChequeStatus? _selectedStatus;
+
+  bool _isEditing = false;
+  bool _submitting = false;
+  AppError? _localError;
+
+  @override
+  void dispose() {
+    _partyCtrl.dispose();
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickChequeDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _chequeDate ?? today,
+      firstDate: DateTime(today.year - 5),
+      lastDate: DateTime(today.year + 5),
+    );
+    if (picked != null) {
+      setState(() => _chequeDate = picked);
+    }
+  }
+
+  void _startEditing(Cheque cheque, ChequeController controller) {
+    setState(() {
+      _isEditing = true;
+      _localError = null;
+      _partyCtrl.text = controller.displayPartyName(cheque);
+      _amountCtrl.text = cheque.amount.toStringAsFixed(2);
+      _chequeDate = cheque.date;
+      _selectedStatus = _displayStatus(cheque, controller.nearThresholdDays);
+    });
+  }
+
+  void _stopEditing() {
+    setState(() {
+      _isEditing = false;
+      _localError = null;
+    });
+  }
+
+  Future<void> _submit(Cheque cheque) async {
+    final controller = context.read<ChequeController>();
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_chequeDate == null) {
+      setState(() {
+        _localError = AppError(
+          code: 'FORM_DATE_MISSING',
+          message: 'Please select the cheque date.',
+        );
+      });
+      return;
+    }
+
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    if (amount == null || amount <= 0) {
+      setState(() {
+        _localError = AppError(
+          code: 'FORM_AMOUNT_INVALID',
+          message: 'Enter a valid amount.',
+        );
+      });
+      return;
+    }
+
+    final status = _selectedStatus ?? cheque.status;
+
+    setState(() {
+      _submitting = true;
+      _localError = null;
+    });
+
+    try {
+      await controller.updateChequeDetails(
+        chequeId: cheque.id,
+        partyName: _partyCtrl.text.trim(),
+        amount: amount,
+        date: _chequeDate!,
+        status: status,
+      );
+
+      if (controller.lastError == null) {
+        if (mounted) {
+          _stopEditing();
+        }
+      } else {
+        setState(() {
+          _localError = controller.lastError;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  ChequeStatus _displayStatus(Cheque cheque, int thresholdDays) {
+    if (cheque.status == ChequeStatus.cashed) {
+      return ChequeStatus.cashed;
+    }
+
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    final chequeDate =
+        DateTime(cheque.date.year, cheque.date.month, cheque.date.day);
+
+    if (chequeDate.isBefore(day)) {
+      return ChequeStatus.expired;
+    }
+
+    if (cheque.isNear(thresholdDays: thresholdDays, referenceDate: day)) {
+      return ChequeStatus.near;
+    }
+
+    return ChequeStatus.valid;
+  }
+
+  String _formatDate(DateTime date) => date.toLocal().toString().split(' ').first;
+
+  @override
   Widget build(BuildContext context) {
     final controller = context.watch<ChequeController>();
-    final cheque = controller.cheques
-        .firstWhere((c) => c.id == chequeId, orElse: () => _dummyCheque());
+    Cheque? cheque;
+    for (final item in controller.cheques) {
+      if (item.id == widget.chequeId) {
+        cheque = item;
+        break;
+      }
+    }
+
+    if (widget.chequeId.isEmpty || cheque == null) {
+      return ErrorScreenView(
+        title: 'Cheque unavailable',
+        message: 'This cheque could not be found. It may have been deleted.',
+        actionLabel: 'Go to Dashboard',
+        onAction: () => Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.userDashboard,
+          (route) => false,
+        ),
+      );
+    }
 
     final partyName = controller.displayPartyName(cheque);
+    final statusLabel =
+        _displayStatus(cheque, controller.nearThresholdDays).name;
+    final error = _localError ?? controller.lastError;
 
     return Scaffold(
       appBar: AppBar(
@@ -37,7 +193,7 @@ class ChequeDetailView extends StatelessWidget {
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: cheque.id.isEmpty
             ? const Center(
@@ -69,22 +225,6 @@ class ChequeDetailView extends StatelessWidget {
                 ],
               ),
       ),
-    );
-  }
-
-  Cheque _dummyCheque() {
-    final now = DateTime.now();
-    return Cheque(
-      id: '',
-      userId: '',
-      partyId: '',
-      partyName: '',
-      chequeNumber: '',
-      amount: 0,
-      date: now,
-      status: ChequeStatus.valid,
-      createdAt: now,
-      updatedAt: now,
     );
   }
 }

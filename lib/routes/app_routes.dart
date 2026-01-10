@@ -6,6 +6,7 @@ import '../views/auth/login_view.dart';
 import '../views/user/user_dashboard_view.dart';
 import '../views/admin/admin_dashboard_view.dart';
 import '../views/common/error_404_view.dart';
+import '../views/common/error_screen_view.dart';
 import '../views/user/cheque_detail_view.dart';
 import '../views/user/user_settings_view.dart';
 import '../views/user/terms_privacy_view.dart';
@@ -32,9 +33,23 @@ class AppRoutes {
       case adminDashboard:
         return MaterialPageRoute(builder: (_) => const AdminDashboardView());
       case chequeDetails:
-        final chequeId = settings.arguments as String;
+        final args = settings.arguments;
+        if (args is! String || args.isEmpty) {
+          return MaterialPageRoute(
+            builder: (context) => ErrorScreenView(
+              title: 'Cheque unavailable',
+              message: 'Missing cheque ID. Please try again.',
+              actionLabel: 'Go to Dashboard',
+              onAction: () =>
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                userDashboard,
+                (route) => false,
+              ),
+            ),
+          );
+        }
         return MaterialPageRoute(
-          builder: (_) => ChequeDetailView(chequeId: chequeId),
+          builder: (_) => ChequeDetailView(chequeId: args),
         );
       case settings:
         return MaterialPageRoute(builder: (_) => const UserSettingsView());

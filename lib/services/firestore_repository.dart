@@ -10,6 +10,7 @@ class FirestoreRepository {
   CollectionReference<Map<String, dynamic>> get cheques => _db.collection('cheques');
   CollectionReference<Map<String, dynamic>> get subscriptions => _db.collection('subscriptions');
   CollectionReference<Map<String, dynamic>> get payments => _db.collection('payments');
+  CollectionReference<Map<String, dynamic>> get tickets => _db.collection('tickets');
   CollectionReference<Map<String, dynamic>> get adminNotifications =>
       _db.collection('admin_notifications');
   CollectionReference<Map<String, dynamic>> get legalDocs =>
