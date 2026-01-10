@@ -14,7 +14,6 @@ class ChequeController extends ChangeNotifier {
   final PartyService _partyService = PartyService();
   final UserService _userService = UserService();
 
-  int _nearThresholdDays = 3;
   User? _user;
   List<Cheque> _cheques = [];
   List<Party> _parties = [];
@@ -23,7 +22,6 @@ class ChequeController extends ChangeNotifier {
 
   void setUser(User? user) {
     _user = user;
-    _nearThresholdDays = user?.notificationLeadDays ?? 3;
     if (user != null) {
       loadData();
     } else {
@@ -36,7 +34,7 @@ class ChequeController extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   AppError? get lastError => _lastError;
-  int get nearThresholdDays => _nearThresholdDays;
+  int get nearThresholdDays => _user?.notificationLeadDays ?? 3;
 
   List<Cheque> get cheques => _cheques;
   List<Party> get parties => _parties;
@@ -104,7 +102,6 @@ class ChequeController extends ChangeNotifier {
         days: days,
       );
 
-      _nearThresholdDays = days;
       _user = _user!.copyWith(notificationLeadDays: days);
 
       await _chequeService.resetNotificationsForUser(_user!.uid);
@@ -409,7 +406,7 @@ class ChequeController extends ChangeNotifier {
       return ChequeStatus.expired;
     }
 
-    if (due.difference(d).inDays <= _nearThresholdDays) {
+    if (due.difference(d).inDays <= nearThresholdDays) {
       return ChequeStatus.near;
     }
 
@@ -446,7 +443,7 @@ class ChequeController extends ChangeNotifier {
     }
 
     if (cheque.isNear(
-      thresholdDays: _nearThresholdDays,
+      thresholdDays: nearThresholdDays,
       referenceDate: day,
     )) {
       return ChequeStatus.near;
