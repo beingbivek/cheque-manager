@@ -18,6 +18,14 @@ class NotificationService {
   static const String _channelDescription =
       'Notifications for cheques that are due soon.';
 
+  String? _pendingChequeId;
+
+  String? consumePendingChequeId() {
+    final pending = _pendingChequeId;
+    _pendingChequeId = null;
+    return pending;
+  }
+
   Future<void> init() async {
     // Android init
     const AndroidInitializationSettings androidInit =
@@ -33,7 +41,7 @@ class NotificationService {
         final payload = response.payload;
         if (payload == null) return;
 
-        final parts = Uri.splitQueryString(payload.replaceFirst('route=', 'route=/'));
+        final parts = Uri.splitQueryString(payload);
         final route = parts['route'];
         final id = parts['id'];
 
@@ -43,6 +51,19 @@ class NotificationService {
 
       },
     );
+
+    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp ?? false) {
+      final payload = launchDetails?.notificationResponse?.payload;
+      if (payload != null) {
+        final parts = Uri.splitQueryString(payload);
+        final route = parts['route'];
+        final id = parts['id'];
+        if (route == AppRoutes.chequeDetails && id != null) {
+          _pendingChequeId = id;
+        }
+      }
+    }
 
     // Android channel
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -61,7 +82,10 @@ class NotificationService {
 
   void _handleNotificationTap(String chequeId) {
     final navState = NavigationService.navigatorKey.currentState;
-    if (navState == null) return;
+    if (navState == null) {
+      _pendingChequeId = chequeId;
+      return;
+    }
 
     // Ensure we're on user dashboard, then push cheque detail
     navState.pushNamedAndRemoveUntil(
@@ -96,7 +120,7 @@ class NotificationService {
       'Cheque due soon: $partyName',
       'Cheque of Rs ${cheque.amount.toStringAsFixed(2)} is near ${cheque.date.toLocal().toString().split(' ').first}.',
       details,
-      payload: 'route=/chequeDetails&id=${cheque.id}',
+      payload: 'route=${AppRoutes.chequeDetails}&id=${cheque.id}',
     );
   }
 }
