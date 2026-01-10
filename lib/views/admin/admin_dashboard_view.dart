@@ -19,7 +19,6 @@ class AdminDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final admin = context.watch<AdminController>();
     final user = auth.currentUser;
 
     return DefaultTabController(
@@ -36,6 +35,7 @@ class AdminDashboardView extends StatelessWidget {
               icon: const Icon(Icons.logout),
               onPressed: () async {
                 await auth.logout();
+                if (!context.mounted) return;
                 Navigator.pushReplacementNamed(context, '/login');
               },
             ),
@@ -44,13 +44,14 @@ class AdminDashboardView extends StatelessWidget {
             tabs: [
               Tab(text: 'Users', icon: Icon(Icons.people_outline)),
               Tab(text: 'Payments/Reports', icon: Icon(Icons.receipt_long)),
+              Tab(text: 'Tickets', icon: Icon(Icons.support_agent)),
               Tab(text: 'Notifications', icon: Icon(Icons.notifications_none)),
               Tab(text: 'Terms & Privacy', icon: Icon(Icons.description_outlined)),
               Tab(text: 'Tickets', icon: Icon(Icons.support_agent)),
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
             _UsersTab(controller: admin),
             _PaymentsTab(controller: admin),
@@ -65,12 +66,11 @@ class AdminDashboardView extends StatelessWidget {
 }
 
 class _UsersTab extends StatelessWidget {
-  const _UsersTab({required this.controller});
-
-  final AdminController controller;
+  const _UsersTab();
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.read<AdminController>();
     return StreamBuilder<List<User>>(
       stream: controller.streamUsers(),
       builder: (context, snapshot) {
@@ -533,10 +533,12 @@ class _PaymentsTabState extends State<_PaymentsTab> {
 class _NotificationsTab extends StatelessWidget {
   const _NotificationsTab({required this.controller});
 
-  final AdminController controller;
+class _NotificationsTab extends StatelessWidget {
+  const _NotificationsTab();
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.read<AdminController>();
     return StreamBuilder<List<AdminNotification>>(
       stream: controller.streamNotifications(),
       builder: (context, snapshot) {
@@ -595,12 +597,11 @@ class _NotificationsTab extends StatelessWidget {
 }
 
 class _LegalDocsTab extends StatelessWidget {
-  const _LegalDocsTab({required this.controller});
-
-  final AdminController controller;
+  const _LegalDocsTab();
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.read<AdminController>();
     return StreamBuilder<List<LegalDoc>>(
       stream: controller.streamLegalDocs(),
       builder: (context, snapshot) {
@@ -678,58 +679,17 @@ class _AdminErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalized = _normalizeError(error);
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _ErrorBanner(error: normalized),
-          const SizedBox(height: 12),
-          const Text('Please try again later.'),
-        ],
-      ),
-    );
-  }
-
-  AppError _normalizeError(Object? error) {
-    if (error is AppError) return error;
-    return AppError(
-      code: 'ADMIN_DASHBOARD_ERROR',
-      message: 'Unable to load admin data.',
-      original: error,
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  final AppError error;
-  const _ErrorBanner({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.red.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${error.message}\nCode: ${error.code}',
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        ),
+    return Center(
+      child: Text(
+        error == null ? 'Something went wrong.' : 'Error: $error',
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
   }
 }
 
-String _formatDate(DateTime date) {
-  final local = date.toLocal();
-  return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
-      '${local.day.toString().padLeft(2, '0')}';
+String _formatDate(DateTime value) {
+  return '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
 }
