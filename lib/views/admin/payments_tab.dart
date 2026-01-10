@@ -87,6 +87,16 @@ class _PaymentsTabState extends State<PaymentsTab> {
     }
   }
 
+  void _resetFilters() {
+    setState(() {
+      _filter = const PaymentsFilter();
+      _report = null;
+      _hasGenerated = false;
+    });
+    _providerController.clear();
+    _planController.clear();
+  }
+
   Future<void> _exportReport(ExportFormat format) async {
     if (!_hasGenerated || _report == null) {
       _showSnackBar('Generate a report before exporting.');
@@ -144,6 +154,7 @@ class _PaymentsTabState extends State<PaymentsTab> {
             });
           },
           onGenerate: _loading ? null : _runReport,
+          onClear: _loading ? null : _resetFilters,
           onExport: _loading ? null : _exportReport,
         ),
         if (_loading)
@@ -266,6 +277,7 @@ class _FiltersCard extends StatelessWidget {
     required this.onProviderChanged,
     required this.onPlanChanged,
     required this.onGenerate,
+    required this.onClear,
     required this.onExport,
   });
 
@@ -276,6 +288,7 @@ class _FiltersCard extends StatelessWidget {
   final ValueChanged<String> onProviderChanged;
   final ValueChanged<String> onPlanChanged;
   final VoidCallback? onGenerate;
+  final VoidCallback? onClear;
   final ValueChanged<ExportFormat>? onExport;
 
   @override
@@ -329,6 +342,10 @@ class _FiltersCard extends StatelessWidget {
                   onPressed: onGenerate,
                   icon: const Icon(Icons.analytics_outlined),
                   label: const Text('Generate Report'),
+                ),
+                TextButton(
+                  onPressed: onClear,
+                  child: const Text('Clear Filters'),
                 ),
                 PopupMenuButton<ExportFormat>(
                   tooltip: 'Export report',
