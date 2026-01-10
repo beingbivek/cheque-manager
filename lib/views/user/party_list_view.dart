@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,13 +7,46 @@ import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/party.dart';
 
-class PartyListView extends StatelessWidget {
+class PartyListView extends StatefulWidget {
   const PartyListView({super.key});
+
+  @override
+  State<PartyListView> createState() => _PartyListViewState();
+}
+
+class _PartyListViewState extends State<PartyListView> {
+  String _searchQuery = '';
+  PartyStatus? _statusFilter;
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ChequeController>();
-    final parties = controller.parties;
+    final parties = controller.parties.where((party) {
+      if (_statusFilter != null && party.status != _statusFilter) {
+        return false;
+      }
+      if (_searchQuery.isEmpty) return true;
+      final haystack = [
+        party.name,
+        party.phone ?? '',
+        party.notes ?? '',
+      ].join(' ').toLowerCase();
+      return haystack.contains(_searchQuery);
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -28,39 +63,93 @@ class PartyListView extends StatelessWidget {
           ),
         ],
       ),
-      body: controller.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : parties.isEmpty
-              ? const Center(child: Text('No parties yet.'))
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: parties.length,
-                  separatorBuilder: (_, __) => const Divider(),
-                  itemBuilder: (context, index) {
-                    final party = parties[index];
-                    return ListTile(
-                      title: Text(party.name),
-                      subtitle: Text(
-                        [
-                          if (party.phone != null && party.phone!.isNotEmpty)
-                            'Phone: ${party.phone}',
-                          if (party.notes != null && party.notes!.isNotEmpty)
-                            'Notes: ${party.notes}',
-                          'Status: ${party.status.name}',
-                        ].join('\n'),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () async {
-                          await showDialog(
-                            context: context,
-                            builder: (_) => _PartyDialog(party: party),
-                          );
+      body: Column(
+        children: [
+          if (controller.isLoading)
+            const LinearProgressIndicator(minHeight: 2),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Search parties',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: _onSearchChanged,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<PartyStatus?>(
+                        value: _statusFilter,
+                        decoration: const InputDecoration(
+                          labelText: 'Status filter',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('All')),
+                          DropdownMenuItem(
+                            value: PartyStatus.active,
+                            child: Text('Active'),
+                          ),
+                          DropdownMenuItem(
+                            value: PartyStatus.archived,
+                            child: Text('Archived'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _statusFilter = value);
                         },
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Count: ${parties.length}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
                 ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: parties.isEmpty
+                ? const Center(child: Text('No parties yet.'))
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: parties.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final party = parties[index];
+                      return ListTile(
+                        title: Text(party.name),
+                        subtitle: Text(
+                          [
+                            if (party.phone != null && party.phone!.isNotEmpty)
+                              'Phone: ${party.phone}',
+                            if (party.notes != null && party.notes!.isNotEmpty)
+                              'Notes: ${party.notes}',
+                            'Status: ${party.status.name}',
+                          ].join('\n'),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () async {
+                            await showDialog(
+                              context: context,
+                              builder: (_) => _PartyDialog(party: party),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
