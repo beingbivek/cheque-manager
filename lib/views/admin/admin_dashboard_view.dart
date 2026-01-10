@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../controllers/admin_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/admin_notification.dart';
-import '../../models/app_error.dart';
 import '../../models/legal_doc.dart';
 import '../../models/payment_record.dart';
 import '../../models/user.dart';
@@ -18,7 +17,6 @@ class AdminDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final admin = context.watch<AdminController>();
     final user = auth.currentUser;
 
     return DefaultTabController(
@@ -35,6 +33,7 @@ class AdminDashboardView extends StatelessWidget {
               icon: const Icon(Icons.logout),
               onPressed: () async {
                 await auth.logout();
+                if (!context.mounted) return;
                 Navigator.pushReplacementNamed(context, '/login');
               },
             ),
@@ -48,12 +47,12 @@ class AdminDashboardView extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
-            _UsersTab(controller: admin),
-            _PaymentsTab(controller: admin),
-            _NotificationsTab(controller: admin),
-            _LegalDocsTab(controller: admin),
+            _PlaceholderTab(message: 'User management coming soon.'),
+            PaymentsTab(),
+            _NotificationsTab(),
+            _LegalDocsTab(),
           ],
         ),
       ),
@@ -61,10 +60,10 @@ class AdminDashboardView extends StatelessWidget {
   }
 }
 
-class _UsersTab extends StatelessWidget {
-  const _UsersTab({required this.controller});
+class _PlaceholderTab extends StatelessWidget {
+  const _PlaceholderTab({required this.message});
 
-  final AdminController controller;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -188,7 +187,103 @@ enum _UserAction { toggleStatus, setFree, setPro }
 class _PaymentsTab extends StatefulWidget {
   const _PaymentsTab({required this.controller});
 
-  final AdminController controller;
+  String _formatTimestamp(DateTime? value) {
+    if (value == null) return 'Unknown';
+    return value.toLocal().toString().split('.').first;
+  }
+
+  @override
+  State<_PaymentsTab> createState() => _PaymentsTabState();
+}
+
+class _PaymentsTabState extends State<_PaymentsTab> {
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String _providerFilter = 'All';
+  String _planFilter = 'All';
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _startDate = picked);
+  }
+
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _endDate = picked);
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+      _providerFilter = 'All';
+      _planFilter = 'All';
+    });
+  }
+
+  void _exportCsv(List<PaymentRecord> payments) {
+    final buffer = StringBuffer()
+      ..writeln('userId,amount,provider,planGranted,createdAt');
+    for (final payment in payments) {
+      final createdAt = payment.createdAt == null
+          ? ''
+          : _formatDate(payment.createdAt!);
+      buffer.writeln(
+        '${payment.userId},${payment.amountValue.toStringAsFixed(2)},'
+        '${payment.provider},${payment.planGranted},$createdAt',
+      );
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Report copied as CSV.')),
+    );
+  }
+
+  List<PaymentRecord> _applyFilters(
+    List<PaymentRecord> payments, {
+    required String providerFilter,
+    required String planFilter,
+  }) {
+    return payments.where((payment) {
+      if (providerFilter != 'All' && payment.provider != providerFilter) {
+        return false;
+      }
+      if (planFilter != 'All' && payment.planGranted != planFilter) {
+        return false;
+      }
+      if (_startDate != null || _endDate != null) {
+        if (payment.createdAt == null) return false;
+        final created = payment.createdAt!;
+        if (_startDate != null && created.isBefore(_startDate!)) return false;
+        if (_endDate != null) {
+          final endOfDay = DateTime(
+            _endDate!.year,
+            _endDate!.month,
+            _endDate!.day,
+            23,
+            59,
+            59,
+          );
+          if (created.isAfter(endOfDay)) return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
 
   @override
   State<_PaymentsTab> createState() => _PaymentsTabState();
@@ -454,10 +549,14 @@ class _PaymentsTabState extends State<_PaymentsTab> {
   }
 }
 
-class _NotificationsTab extends StatelessWidget {
-  const _NotificationsTab({required this.controller});
+class _LegalDocsTab extends StatelessWidget {
+  const _LegalDocsTab();
 
-  final AdminController controller;
+  Future<void> _showEditDialog(BuildContext context, LegalDoc doc) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (_) => AdminLegalDocDialog(doc: doc),
+    );
 
   @override
   Widget build(BuildContext context) {
@@ -516,12 +615,11 @@ class _NotificationsTab extends StatelessWidget {
       },
     );
   }
-}
 
-class _LegalDocsTab extends StatelessWidget {
-  const _LegalDocsTab({required this.controller});
-
-  final AdminController controller;
+  String _formatTimestamp(DateTime? value) {
+    if (value == null) return 'Not updated';
+    return value.toLocal().toString().split('.').first;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -601,58 +699,11 @@ class _AdminErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalized = _normalizeError(error);
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _ErrorBanner(error: normalized),
-          const SizedBox(height: 12),
-          const Text('Please try again later.'),
-        ],
+    return Center(
+      child: Text(
+        error == null ? 'Something went wrong.' : 'Error: $error',
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
   }
-
-  AppError _normalizeError(Object? error) {
-    if (error is AppError) return error;
-    return AppError(
-      code: 'ADMIN_DASHBOARD_ERROR',
-      message: 'Unable to load admin data.',
-      original: error,
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  final AppError error;
-  const _ErrorBanner({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.red.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${error.message}\nCode: ${error.code}',
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _formatDate(DateTime date) {
-  final local = date.toLocal();
-  return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
-      '${local.day.toString().padLeft(2, '0')}';
 }
