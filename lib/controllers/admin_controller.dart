@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/admin_notification.dart';
 import '../models/legal_doc.dart';
 import '../models/payment_record.dart';
+import '../models/ticket.dart';
 import '../models/user.dart';
 import '../services/admin_service.dart';
 
@@ -14,6 +15,8 @@ class AdminController extends ChangeNotifier {
   Stream<List<User>> streamUsers() => _service.streamUsers();
 
   Stream<List<PaymentRecord>> streamPayments() => _service.streamPayments();
+
+  Stream<List<Ticket>> streamTickets() => _service.streamTickets();
 
   Future<List<PaymentRecord>> fetchFilteredPayments({
     DateTime? startDate,
@@ -65,5 +68,12 @@ class AdminController extends ChangeNotifier {
     required UserTier tier,
   }) {
     return _service.updateUserTier(userId: userId, tier: tier);
+  }
+
+  Future<void> updateTicketStatus({
+    required String ticketId,
+    required TicketStatus status,
+  }) {
+    return _service.updateTicketStatus(ticketId: ticketId, status: status);
   }
 }
