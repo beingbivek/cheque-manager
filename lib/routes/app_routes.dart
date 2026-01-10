@@ -11,6 +11,7 @@ import '../views/user/cheque_detail_view.dart';
 import '../views/user/user_settings_view.dart';
 import '../views/user/terms_privacy_view.dart';
 import '../views/user/user_tickets_view.dart';
+import '../views/user/user_notifications_view.dart';
 
 
 class AppRoutes {
@@ -22,6 +23,7 @@ class AppRoutes {
   static const settings = '/settings';
   static const termsPrivacy = '/terms-privacy';
   static const userTickets = '/tickets';
+  static const userNotifications = '/notifications';
 
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -59,6 +61,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const TermsPrivacyView());
       case userTickets:
         return MaterialPageRoute(builder: (_) => const UserTicketsView());
+      case userNotifications:
+        return MaterialPageRoute(builder: (_) => const UserNotificationsView());
       default:
         return MaterialPageRoute(builder: (_) => const Error404View());
     }
