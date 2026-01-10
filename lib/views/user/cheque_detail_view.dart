@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/cheque.dart';
+import '../../routes/app_routes.dart';
+import '../common/error_screen_view.dart';
 
 class ChequeDetailView extends StatefulWidget {
   final String chequeId;
@@ -144,27 +146,28 @@ class _ChequeDetailViewState extends State<ChequeDetailView> {
 
   String _formatDate(DateTime date) => date.toLocal().toString().split(' ').first;
 
-  Cheque _dummyCheque() {
-    final now = DateTime.now();
-    return Cheque(
-      id: '',
-      userId: '',
-      partyId: '',
-      partyName: '',
-      chequeNumber: '',
-      amount: 0,
-      date: now,
-      status: ChequeStatus.valid,
-      createdAt: now,
-      updatedAt: now,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ChequeController>();
-    final cheque = controller.cheques
-        .firstWhere((c) => c.id == widget.chequeId, orElse: () => _dummyCheque());
+    Cheque? cheque;
+    for (final item in controller.cheques) {
+      if (item.id == widget.chequeId) {
+        cheque = item;
+        break;
+      }
+    }
+
+    if (widget.chequeId.isEmpty || cheque == null) {
+      return ErrorScreenView(
+        title: 'Cheque unavailable',
+        message: 'This cheque could not be found. It may have been deleted.',
+        actionLabel: 'Go to Dashboard',
+        onAction: () => Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.userDashboard,
+          (route) => false,
+        ),
+      );
+    }
 
     final partyName = controller.displayPartyName(cheque);
     final statusLabel =
@@ -174,132 +177,126 @@ class _ChequeDetailViewState extends State<ChequeDetailView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cheque Details'),
-        actions: cheque.id.isEmpty
-            ? null
-            : [
-                IconButton(
-                  tooltip: _isEditing ? 'Cancel' : 'Edit',
-                  icon: Icon(_isEditing ? Icons.close : Icons.edit),
-                  onPressed: () =>
-                      _isEditing ? _stopEditing() : _startEditing(cheque, controller),
-                ),
-              ],
+        actions: [
+          IconButton(
+            tooltip: _isEditing ? 'Cancel' : 'Edit',
+            icon: Icon(_isEditing ? Icons.close : Icons.edit),
+            onPressed: () =>
+                _isEditing ? _stopEditing() : _startEditing(cheque!, controller),
+          ),
+        ],
       ),
-      body: cheque.id.isEmpty
-          ? const Center(
-              child: Text('Cheque not found. It may have been deleted.'),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (error != null)
-                    Card(
-                      color: Colors.red.shade50,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline, color: Colors.red),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '${error.message}\nCode: ${error.code}',
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (error != null)
+              Card(
+                color: Colors.red.shade50,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${error.message}\nCode: ${error.code}',
+                          style: const TextStyle(color: Colors.red),
                         ),
                       ),
-                    ),
-                  Text(
-                    partyName,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text('Cheque No: ${cheque.chequeNumber}'),
-                  Text('Amount: Rs ${cheque.amount.toStringAsFixed(2)}'),
-                  Text('Date: ${_formatDate(cheque.date)}'),
-                  Text('Status: $statusLabel'),
-                  const SizedBox(height: 24),
-                  if (_isEditing)
-                    Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Edit Details',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _partyCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Party Name',
+                ),
+              ),
+            Text(
+              partyName,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text('Cheque No: ${cheque.chequeNumber}'),
+            Text('Amount: Rs ${cheque.amount.toStringAsFixed(2)}'),
+            Text('Date: ${_formatDate(cheque.date)}'),
+            Text('Status: $statusLabel'),
+            const SizedBox(height: 24),
+            if (_isEditing)
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Edit Details',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _partyCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Party Name',
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Enter party name'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _amountCtrl,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Amount',
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Enter amount'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Cheque Date'),
+                      subtitle: Text(
+                        _chequeDate == null
+                            ? 'Select date'
+                            : _formatDate(_chequeDate!),
+                      ),
+                      onTap: _pickChequeDate,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<ChequeStatus>(
+                      value: _selectedStatus,
+                      items: ChequeStatus.values
+                          .map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(status.name),
                             ),
-                            validator: (v) => v == null || v.trim().isEmpty
-                                ? 'Enter party name'
-                                : null,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _amountCtrl,
-                            keyboardType:
-                                const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Amount',
-                            ),
-                            validator: (v) => v == null || v.trim().isEmpty
-                                ? 'Enter amount'
-                                : null,
-                          ),
-                          const SizedBox(height: 12),
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Cheque Date'),
-                            subtitle: Text(
-                              _chequeDate == null
-                                  ? 'Select date'
-                                  : _formatDate(_chequeDate!),
-                            ),
-                            onTap: _pickChequeDate,
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<ChequeStatus>(
-                            value: _selectedStatus,
-                            items: ChequeStatus.values
-                                .map(
-                                  (status) => DropdownMenuItem(
-                                    value: status,
-                                    child: Text(status.name),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) =>
-                                setState(() => _selectedStatus = value),
-                            decoration: const InputDecoration(
-                              labelText: 'Status',
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _submitting ? null : () => _submit(cheque),
-                              child: _submitting
-                                  ? const CircularProgressIndicator()
-                                  : const Text('Save Changes'),
-                            ),
-                          ),
-                        ],
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _selectedStatus = value),
+                      decoration: const InputDecoration(
+                        labelText: 'Status',
                       ),
                     ),
-                ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _submitting ? null : () => _submit(cheque!),
+                        child: _submitting
+                            ? const CircularProgressIndicator()
+                            : const Text('Save Changes'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+          ],
+        ),
+      ),
     );
   }
 }

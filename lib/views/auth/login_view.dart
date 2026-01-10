@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../routes/app_routes.dart';
 import '../../models/app_error.dart';
+import '../../services/notification_service.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -26,9 +27,30 @@ class _LoginViewState extends State<LoginView> {
       if (auth.isLoggedIn) {
         final user = auth.currentUser!;
         if (user.role == 'admin') {
+          NotificationService.instance.clearPendingPayload();
           Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
         } else {
-          Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+          NotificationService.instance
+              .consumePendingChequeId()
+              .then((chequeId) {
+            if (!mounted) return;
+            if (chequeId == null) {
+              Navigator.pushReplacementNamed(
+                  context, AppRoutes.userDashboard);
+              return;
+            }
+
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.userDashboard,
+              (route) => false,
+            );
+            Navigator.pushNamed(
+              context,
+              AppRoutes.chequeDetails,
+              arguments: chequeId,
+            );
+          });
         }
       }
     });
