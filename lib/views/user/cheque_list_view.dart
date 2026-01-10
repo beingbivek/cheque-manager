@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/cheque.dart';
+import '../../routes/app_routes.dart';
 import 'cheque_form_view.dart';
 import 'notification_settings_view.dart';
 
@@ -65,6 +66,13 @@ class _ChequeListViewState extends State<ChequeListView> {
                     builder: (_) => const NotificationSettingsView(),
                   ),
                 );
+              },
+            ),
+            IconButton(
+              tooltip: 'Terms & Privacy',
+              icon: const Icon(Icons.description_outlined),
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.termsPrivacy);
               },
             ),
           ],

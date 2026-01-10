@@ -48,11 +48,15 @@ class AdminController extends ChangeNotifier {
     required String docId,
     required String title,
     required String content,
+    required String version,
+    required DateTime? publishedAt,
   }) {
     return _service.updateLegalDoc(
       docId: docId,
       title: title,
       content: content,
+      version: version,
+      publishedAt: publishedAt,
     );
   }
 
