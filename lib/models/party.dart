@@ -23,6 +23,28 @@ class Party {
     this.updatedAt,
   });
 
+  Party copyWith({
+    String? id,
+    String? userId,
+    String? name,
+    String? phone,
+    String? notes,
+    PartyStatus? status,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Party(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      notes: notes ?? this.notes,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   factory Party.fromMap(String id, Map<String, dynamic> data) {
     return Party(
       id: id,
