@@ -218,6 +218,20 @@ class PaymentReport {
   double get totalAmount =>
       payments.fold(0, (total, item) => total + item.amountValue);
 
+  int get freeCount =>
+      payments.where((payment) => !_isProPlan(payment.planGranted)).length;
+
+  int get proCount =>
+      payments.where((payment) => _isProPlan(payment.planGranted)).length;
+
+  double get monthlyRecurringRevenue {
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    return payments
+        .where((payment) =>
+            payment.createdAt != null && payment.createdAt!.isAfter(cutoff))
+        .fold(0, (total, item) => total + item.amountValue);
+  }
+
   static PaymentReport fromPayments(List<PaymentRecord> payments) {
     return PaymentReport(payments: payments);
   }
@@ -226,6 +240,9 @@ class PaymentReport {
     return {
       'count': count,
       'totalAmount': totalAmount,
+      'monthlyRecurringRevenue': monthlyRecurringRevenue,
+      'freeCount': freeCount,
+      'proCount': proCount,
       'payments': payments.map(_mapPayment).toList(),
     };
   }
@@ -257,6 +274,13 @@ class PaymentReport {
       'amount': payment.amountValue,
       'createdAt': payment.createdAt?.toIso8601String(),
     };
+  }
+
+  static bool _isProPlan(String plan) {
+    final normalized = plan.toLowerCase();
+    return normalized.contains('pro') ||
+        normalized.contains('premium') ||
+        normalized.contains('paid');
   }
 
   static String _escape(String value) {
@@ -393,19 +417,36 @@ class _SummaryCard extends StatelessWidget {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
             children: [
-              Expanded(
+              SizedBox(
+                width: 180,
                 child: _SummaryTile(
                   label: 'Payments',
                   value: report!.count.toString(),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+              SizedBox(
+                width: 180,
                 child: _SummaryTile(
                   label: 'Total Amount',
                   value: report!.totalAmount.toStringAsFixed(2),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: _SummaryTile(
+                  label: 'MRR (30d)',
+                  value: report!.monthlyRecurringRevenue.toStringAsFixed(2),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: _SummaryTile(
+                  label: 'Free vs Pro',
+                  value: '${report!.freeCount} / ${report!.proCount}',
                 ),
               ),
             ],

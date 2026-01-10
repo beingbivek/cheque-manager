@@ -4,6 +4,7 @@ import '../models/admin_notification.dart';
 import '../models/app_error.dart';
 import '../models/legal_doc.dart';
 import '../models/payment_record.dart';
+import '../models/ticket.dart';
 import '../models/user.dart';
 import 'firestore_repository.dart';
 
@@ -42,6 +43,51 @@ class AdminService {
         });
   }
 
+  Future<List<PaymentRecord>> fetchFilteredPayments({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? provider,
+    String? plan,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _repository.payments;
+      if (startDate != null) {
+        query = query.where(
+          'createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+        );
+      }
+      if (endDate != null) {
+        query = query.where(
+          'createdAt',
+          isLessThanOrEqualTo: Timestamp.fromDate(endDate),
+        );
+      }
+      if (provider != null && provider.trim().isNotEmpty) {
+        query = query.where('provider', isEqualTo: provider.trim());
+      }
+      if (plan != null && plan.trim().isNotEmpty) {
+        query = query.where('planGranted', isEqualTo: plan.trim());
+      }
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) => PaymentRecord.fromMap(doc.id, doc.data()))
+          .toList();
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to load payments.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_PAYMENTS_FETCH',
+        message: 'Unknown error while fetching payments.',
+        original: e,
+      );
+    }
+  }
+
   Stream<List<AdminNotification>> streamNotifications() {
     return _repository.adminNotifications
         .snapshots()
@@ -55,6 +101,45 @@ class AdminService {
             message: 'Failed to stream notifications.',
           );
         });
+  }
+
+  Stream<List<Ticket>> streamTickets() {
+    return _repository.tickets
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Ticket.fromMap(doc.id, doc.data())).toList())
+        .handleError((error, stackTrace) {
+      throw _wrapError(
+        error,
+        code: 'ADMIN_TICKETS_STREAM',
+        message: 'Failed to stream tickets.',
+      );
+    });
+  }
+
+  Future<void> updateTicketStatus({
+    required String ticketId,
+    required TicketStatus status,
+  }) async {
+    try {
+      await _repository.tickets.doc(ticketId).update({
+        'status': status.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update ticket status.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_TICKET_UPDATE',
+        message: 'Unknown error while updating ticket.',
+        original: e,
+      );
+    }
   }
 
   Stream<List<LegalDoc>> streamLegalDocs() {
