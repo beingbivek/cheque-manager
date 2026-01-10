@@ -5,10 +5,9 @@ import '../../controllers/admin_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/admin_notification.dart';
 import '../../models/legal_doc.dart';
-import '../../models/payment_record.dart';
-import '../../models/user.dart';
 import 'admin_legal_doc_dialog.dart';
 import 'admin_notification_dialog.dart';
+import 'payments_tab.dart';
 
 class AdminDashboardView extends StatelessWidget {
   const AdminDashboardView({super.key});
@@ -32,6 +31,7 @@ class AdminDashboardView extends StatelessWidget {
               icon: const Icon(Icons.logout),
               onPressed: () async {
                 await auth.logout();
+                if (!context.mounted) return;
                 Navigator.pushReplacementNamed(context, '/login');
               },
             ),
@@ -45,12 +45,12 @@ class AdminDashboardView extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
-            const _PlaceholderTab(message: 'User management coming soon.'),
-            const _PlaceholderTab(message: 'Payments & reports coming soon.'),
-            const _NotificationsTab(),
-            const _LegalDocsTab(),
+            _PlaceholderTab(message: 'User management coming soon.'),
+            PaymentsTab(),
+            _NotificationsTab(),
+            _LegalDocsTab(),
           ],
         ),
       ),
@@ -77,70 +77,6 @@ class _PlaceholderTab extends StatelessWidget {
 class _NotificationsTab extends StatelessWidget {
   const _NotificationsTab();
 
-  Future<void> _showCreateDialog(BuildContext context) async {
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (_) => const CreateNotificationDialog(),
-    );
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<AdminNotification>>(
-      stream: controller.streamNotifications(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _AdminErrorState(error: snapshot.error);
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final notifications = snapshot.data!;
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    await showDialog<bool>(
-                      context: context,
-                      builder: (_) => const AdminNotificationDialog(),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('New Notification'),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: notifications.isEmpty
-                  ? const _EmptyState(message: 'No admin notifications yet.')
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: notifications.length,
-                      separatorBuilder: (_, __) => const Divider(),
-                      itemBuilder: (context, index) {
-                        final notification = notifications[index];
-                        return ListTile(
-                          title: Text(notification.title),
-                          subtitle: Text(notification.message),
-                          trailing: Text(
-                            notification.createdAt == null
-                                ? 'Unknown'
-                                : _formatDate(notification.createdAt!),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   String _formatTimestamp(DateTime? value) {
     if (value == null) return 'Unknown';
     return value.toLocal().toString().split('.').first;
@@ -161,24 +97,15 @@ class _NotificationsTab extends StatelessWidget {
                 'Notifications',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              trailing: Wrap(
-                spacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    doc.updatedAt == null ? 'Unknown' : _formatDate(doc.updatedAt!),
-                  ),
-                  IconButton(
-                    tooltip: 'Edit',
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () async {
-                      await showDialog<bool>(
-                        context: context,
-                        builder: (_) => AdminLegalDocDialog(doc: doc),
-                      );
-                    },
-                  ),
-                ],
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await showDialog<bool>(
+                    context: context,
+                    builder: (_) => const AdminNotificationDialog(),
+                  );
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('New Notification'),
               ),
             ],
           ),
@@ -191,11 +118,11 @@ class _NotificationsTab extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return const Center(child: Text('Failed to load notifications.'));
+                return _AdminErrorState(error: snapshot.error);
               }
               final items = snapshot.data ?? [];
               if (items.isEmpty) {
-                return const Center(child: Text('No notifications yet.'));
+                return const _EmptyState(message: 'No admin notifications yet.');
               }
               return ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -227,7 +154,7 @@ class _LegalDocsTab extends StatelessWidget {
   Future<void> _showEditDialog(BuildContext context, LegalDoc doc) async {
     final updated = await showDialog<bool>(
       context: context,
-      builder: (_) => EditLegalDocDialog(doc: doc),
+      builder: (_) => AdminLegalDocDialog(doc: doc),
     );
 
     if (!context.mounted || updated != true) return;
@@ -265,11 +192,11 @@ class _LegalDocsTab extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return const Center(child: Text('Failed to load legal docs.'));
+                return _AdminErrorState(error: snapshot.error);
               }
               final items = snapshot.data ?? [];
               if (items.isEmpty) {
-                return const Center(child: Text('No legal documents yet.'));
+                return const _EmptyState(message: 'No legal documents yet.');
               }
               return ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -293,6 +220,38 @@ class _LegalDocsTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyLarge,
+      ),
+    );
+  }
+}
+
+class _AdminErrorState extends StatelessWidget {
+  const _AdminErrorState({required this.error});
+
+  final Object? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        error == null ? 'Something went wrong.' : 'Error: $error',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
     );
   }
 }
