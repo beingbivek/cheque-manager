@@ -8,6 +8,7 @@ import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/cheque.dart';
 import 'cheque_form_view.dart';
+import 'notification_settings_view.dart';
 
 class ChequeListView extends StatefulWidget {
   const ChequeListView({super.key});
@@ -55,6 +56,16 @@ class _ChequeListViewState extends State<ChequeListView> {
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => controller.refreshStatuses(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationSettingsView(),
+                  ),
+                );
+              },
             ),
           ],
         ),

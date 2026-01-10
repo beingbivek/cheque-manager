@@ -30,6 +30,7 @@ class AuthService {
           status: UserStatus.active,
           partyCount: 0,
           chequeCount: 0,
+          notificationLeadDays: 3,
           createdAt: now,
           updatedAt: now,
         );
