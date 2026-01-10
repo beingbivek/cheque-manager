@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../controllers/admin_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/admin_notification.dart';
-import '../../models/app_error.dart';
 import '../../models/legal_doc.dart';
 import '../../models/payment_record.dart';
 import '../../models/user.dart';
@@ -17,7 +16,6 @@ class AdminDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final admin = context.watch<AdminController>();
     final user = auth.currentUser;
 
     return DefaultTabController(
@@ -49,10 +47,10 @@ class AdminDashboardView extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _UsersTab(controller: admin),
-            _PaymentsTab(controller: admin),
-            _NotificationsTab(controller: admin),
-            _LegalDocsTab(controller: admin),
+            const _PlaceholderTab(message: 'User management coming soon.'),
+            const _PlaceholderTab(message: 'Payments & reports coming soon.'),
+            const _NotificationsTab(),
+            const _LegalDocsTab(),
           ],
         ),
       ),
@@ -60,99 +58,30 @@ class AdminDashboardView extends StatelessWidget {
   }
 }
 
-class _UsersTab extends StatelessWidget {
-  const _UsersTab({required this.controller});
+class _PlaceholderTab extends StatelessWidget {
+  const _PlaceholderTab({required this.message});
 
-  final AdminController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<User>>(
-      stream: controller.streamUsers(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _AdminErrorState(error: snapshot.error);
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final users = snapshot.data!;
-        if (users.isEmpty) {
-          return const _EmptyState(message: 'No users found.');
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: users.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final user = users[index];
-            return ListTile(
-              title: Text(user.displayName?.trim().isNotEmpty == true
-                  ? user.displayName!
-                  : user.email),
-              subtitle: Text(
-                'Tier: ${user.tier.name} · Status: ${user.status.name}\n'
-                'Parties: ${user.partyCount} · Cheques: ${user.chequeCount}',
-              ),
-              trailing: Text(user.role),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _PaymentsTab extends StatelessWidget {
-  const _PaymentsTab({required this.controller});
-
-  final AdminController controller;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<PaymentRecord>>(
-      stream: controller.streamPayments(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _AdminErrorState(error: snapshot.error);
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final payments = snapshot.data!;
-        if (payments.isEmpty) {
-          return const _EmptyState(message: 'No payments recorded yet.');
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: payments.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final payment = payments[index];
-            return ListTile(
-              title: Text(
-                'Rs ${payment.amountValue.toStringAsFixed(2)} · ${payment.provider}',
-              ),
-              subtitle: Text(
-                'User: ${payment.userId}\nPlan: ${payment.planGranted}',
-              ),
-              trailing: Text(
-                payment.createdAt == null
-                    ? 'Unknown'
-                    : _formatDate(payment.createdAt!),
-              ),
-            );
-          },
-        );
-      },
+    return Center(
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyLarge,
+      ),
     );
   }
 }
 
 class _NotificationsTab extends StatelessWidget {
-  const _NotificationsTab({required this.controller});
+  const _NotificationsTab();
 
-  final AdminController controller;
+  Future<void> _showCreateDialog(BuildContext context) async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (_) => const CreateNotificationDialog(),
+    );
 
   @override
   Widget build(BuildContext context) {
@@ -211,40 +140,26 @@ class _NotificationsTab extends StatelessWidget {
       },
     );
   }
-}
 
-class _LegalDocsTab extends StatelessWidget {
-  const _LegalDocsTab({required this.controller});
-
-  final AdminController controller;
+  String _formatTimestamp(DateTime? value) {
+    if (value == null) return 'Unknown';
+    return value.toLocal().toString().split('.').first;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<LegalDoc>>(
-      stream: controller.streamLegalDocs(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _AdminErrorState(error: snapshot.error);
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final docs = snapshot.data!;
-        if (docs.isEmpty) {
-          return const _EmptyState(message: 'No legal documents found.');
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: docs.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final doc = docs[index];
-            return ListTile(
-              title: Text('${doc.docType.toUpperCase()} · ${doc.title}'),
-              subtitle: Text(
-                doc.content,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+    final controller = context.watch<AdminController>();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Notifications',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
               trailing: Wrap(
                 spacing: 12,
@@ -265,89 +180,119 @@ class _LegalDocsTab extends StatelessWidget {
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyLarge,
-      ),
-    );
-  }
-}
-
-class _AdminErrorState extends StatelessWidget {
-  const _AdminErrorState({required this.error});
-
-  final Object? error;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalized = _normalizeError(error);
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _ErrorBanner(error: normalized),
-          const SizedBox(height: 12),
-          const Text('Please try again later.'),
-        ],
-      ),
-    );
-  }
-
-  AppError _normalizeError(Object? error) {
-    if (error is AppError) return error;
-    return AppError(
-      code: 'ADMIN_DASHBOARD_ERROR',
-      message: 'Unable to load admin data.',
-      original: error,
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  final AppError error;
-  const _ErrorBanner({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.red.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${error.message}\nCode: ${error.code}',
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        Expanded(
+          child: StreamBuilder<List<AdminNotification>>(
+            stream: controller.streamNotifications(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return const Center(child: Text('Failed to load notifications.'));
+              }
+              final items = snapshot.data ?? [];
+              if (items.isEmpty) {
+                return const Center(child: Text('No notifications yet.'));
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const Divider(),
+                itemBuilder: (context, index) {
+                  final notification = items[index];
+                  return ListTile(
+                    title: Text(notification.title),
+                    subtitle: Text(notification.message),
+                    trailing: Text(
+                      _formatTimestamp(notification.createdAt),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
-String _formatDate(DateTime date) {
-  final local = date.toLocal();
-  return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
-      '${local.day.toString().padLeft(2, '0')}';
+class _LegalDocsTab extends StatelessWidget {
+  const _LegalDocsTab();
+
+  Future<void> _showEditDialog(BuildContext context, LegalDoc doc) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (_) => EditLegalDocDialog(doc: doc),
+    );
+
+    if (!context.mounted || updated != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Legal document updated successfully.')),
+    );
+  }
+
+  String _formatTimestamp(DateTime? value) {
+    if (value == null) return 'Not updated';
+    return value.toLocal().toString().split('.').first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<AdminController>();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Terms & Privacy',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<List<LegalDoc>>(
+            stream: controller.streamLegalDocs(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return const Center(child: Text('Failed to load legal docs.'));
+              }
+              final items = snapshot.data ?? [];
+              if (items.isEmpty) {
+                return const Center(child: Text('No legal documents yet.'));
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const Divider(),
+                itemBuilder: (context, index) {
+                  final doc = items[index];
+                  return ListTile(
+                    title: Text(doc.title),
+                    subtitle: Text(
+                      '${doc.docType} · Updated ${_formatTimestamp(doc.updatedAt)}',
+                    ),
+                    trailing: TextButton(
+                      onPressed: () => _showEditDialog(context, doc),
+                      child: const Text('Edit'),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }

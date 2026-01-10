@@ -135,7 +135,7 @@ class AdminService {
       return error;
     }
     if (error is FirebaseException) {
-      return AppError(
+      throw AppError(
         code: 'FIRESTORE_${error.code.toUpperCase()}',
         message: message,
         original: error,
