@@ -91,6 +91,33 @@ class ChequeService {
     }
   }
 
+  Future<void> updateChequeDetails({
+    required String chequeId,
+    required String partyName,
+    required double amount,
+    required DateTime date,
+    required ChequeStatus status,
+    required bool notificationSent,
+    required DateTime updatedAt,
+  }) async {
+    try {
+      await _collection.doc(chequeId).update({
+        'partyName': partyName,
+        'amount': amount,
+        'date': date,
+        'status': status.name,
+        'notificationSent': notificationSent,
+        'updatedAt': updatedAt,
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update cheque.',
+        original: e,
+      );
+    }
+  }
+
   Future<void> resetNotificationsForUser(String userId) async {
     try {
       final snapshot =

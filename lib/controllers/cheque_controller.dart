@@ -334,6 +334,69 @@ class ChequeController extends ChangeNotifier {
     }
   }
 
+  Future<void> updateChequeDetails({
+    required String chequeId,
+    required String partyName,
+    required double amount,
+    required DateTime date,
+    required ChequeStatus status,
+  }) async {
+    final index = _cheques.indexWhere((c) => c.id == chequeId);
+    if (index == -1) {
+      _lastError = AppError(
+        code: 'CHEQUE_NOT_FOUND',
+        message: 'Cheque not found.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    final current = _cheques[index];
+    final nextStatus = status == ChequeStatus.cashed
+        ? ChequeStatus.cashed
+        : _calculateStatus(date, cashed: false);
+    final resetNotification = nextStatus != ChequeStatus.cashed &&
+        (current.date != date || current.status == ChequeStatus.cashed);
+    final notificationSent =
+        resetNotification ? false : current.notificationSent;
+
+    final now = DateTime.now();
+    final optimistic = current.copyWith(
+      partyName: partyName,
+      amount: amount,
+      date: date,
+      status: nextStatus,
+      notificationSent: notificationSent,
+      updatedAt: now,
+    );
+
+    final updated = List<Cheque>.from(_cheques);
+    updated[index] = optimistic;
+    _cheques = updated;
+    _lastError = null;
+    notifyListeners();
+
+    try {
+      await _chequeService.updateChequeDetails(
+        chequeId: chequeId,
+        partyName: partyName,
+        amount: amount,
+        date: date,
+        status: nextStatus,
+        notificationSent: notificationSent,
+        updatedAt: now,
+      );
+      _lastError = null;
+      notifyListeners();
+    } on AppError catch (e) {
+      final reverted = List<Cheque>.from(_cheques);
+      reverted[index] = current;
+      _cheques = reverted;
+      _lastError = e;
+      notifyListeners();
+    }
+  }
+
   // Helper: recalc status based on dates
   ChequeStatus _calculateStatus(DateTime chequeDate, {required bool cashed}) {
     if (cashed) return ChequeStatus.cashed;
