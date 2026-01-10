@@ -126,6 +126,54 @@ class AdminService {
     }
   }
 
+  Future<void> updateUserStatus({
+    required String userId,
+    required UserStatus status,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'status': status.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update user status.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_USER_STATUS_UPDATE',
+        message: 'Unknown error while updating user status.',
+        original: e,
+      );
+    }
+  }
+
+  Future<void> updateUserTier({
+    required String userId,
+    required UserTier tier,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'tier': tier.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update user tier.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_USER_TIER_UPDATE',
+        message: 'Unknown error while updating user tier.',
+        original: e,
+      );
+    }
+  }
+
   AppError _wrapError(
     Object error, {
     required String code,

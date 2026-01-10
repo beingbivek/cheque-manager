@@ -52,4 +52,18 @@ class AdminController extends ChangeNotifier {
       content: content,
     );
   }
+
+  Future<void> updateUserStatus({
+    required String userId,
+    required UserStatus status,
+  }) {
+    return _service.updateUserStatus(userId: userId, status: status);
+  }
+
+  Future<void> updateUserTier({
+    required String userId,
+    required UserTier tier,
+  }) {
+    return _service.updateUserTier(userId: userId, tier: tier);
+  }
 }

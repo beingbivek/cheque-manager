@@ -67,14 +67,122 @@ class _PlaceholderTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyLarge,
-      ),
+    return StreamBuilder<List<User>>(
+      stream: controller.streamUsers(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _AdminErrorState(error: snapshot.error);
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final users = snapshot.data!;
+        if (users.isEmpty) {
+          return const _EmptyState(message: 'No users found.');
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: users.length,
+          separatorBuilder: (_, __) => const Divider(),
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              title: Text(user.displayName?.trim().isNotEmpty == true
+                  ? user.displayName!
+                  : user.email),
+              subtitle: Text(
+                'Tier: ${user.tier.name} · Status: ${user.status.name}\n'
+                'Parties: ${user.partyCount} · Cheques: ${user.chequeCount}',
+              ),
+              trailing: _UserActions(
+                controller: controller,
+                user: user,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
+
+class _UserActions extends StatelessWidget {
+  const _UserActions({
+    required this.controller,
+    required this.user,
+  });
+
+  final AdminController controller;
+  final User user;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_UserAction>(
+      onSelected: (action) => _handleAction(context, action),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _UserAction.toggleStatus,
+          child: Text(
+            user.status == UserStatus.active ? 'Suspend user' : 'Activate user',
+          ),
+        ),
+        const PopupMenuItem(
+          value: _UserAction.setFree,
+          child: Text('Set tier: Free'),
+        ),
+        const PopupMenuItem(
+          value: _UserAction.setPro,
+          child: Text('Set tier: Pro'),
+        ),
+      ],
+      icon: const Icon(Icons.more_vert),
+    );
+  }
+
+  Future<void> _handleAction(BuildContext context, _UserAction action) async {
+    try {
+      switch (action) {
+        case _UserAction.toggleStatus:
+          final newStatus = user.status == UserStatus.active
+              ? UserStatus.suspended
+              : UserStatus.active;
+          await controller.updateUserStatus(
+            userId: user.uid,
+            status: newStatus,
+          );
+          _showSuccess(
+            context,
+            'User status set to ${newStatus.name}.',
+          );
+          break;
+        case _UserAction.setFree:
+          await controller.updateUserTier(userId: user.uid, tier: UserTier.free);
+          _showSuccess(context, 'User tier set to free.');
+          break;
+        case _UserAction.setPro:
+          await controller.updateUserTier(userId: user.uid, tier: UserTier.pro);
+          _showSuccess(context, 'User tier set to pro.');
+          break;
+      }
+    } on AppError catch (e) {
+      _showError(context, e);
+    }
+  }
+
+  void _showSuccess(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showError(BuildContext context, AppError error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${error.message} (Code: ${error.code})')),
+    );
+  }
+}
+
+enum _UserAction { toggleStatus, setFree, setPro }
 
 class _PaymentsTab extends StatefulWidget {
   const _PaymentsTab({required this.controller});
@@ -82,6 +190,99 @@ class _PaymentsTab extends StatefulWidget {
   String _formatTimestamp(DateTime? value) {
     if (value == null) return 'Unknown';
     return value.toLocal().toString().split('.').first;
+  }
+
+  @override
+  State<_PaymentsTab> createState() => _PaymentsTabState();
+}
+
+class _PaymentsTabState extends State<_PaymentsTab> {
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String _providerFilter = 'All';
+  String _planFilter = 'All';
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _startDate = picked);
+  }
+
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _endDate = picked);
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+      _providerFilter = 'All';
+      _planFilter = 'All';
+    });
+  }
+
+  void _exportCsv(List<PaymentRecord> payments) {
+    final buffer = StringBuffer()
+      ..writeln('userId,amount,provider,planGranted,createdAt');
+    for (final payment in payments) {
+      final createdAt = payment.createdAt == null
+          ? ''
+          : _formatDate(payment.createdAt!);
+      buffer.writeln(
+        '${payment.userId},${payment.amountValue.toStringAsFixed(2)},'
+        '${payment.provider},${payment.planGranted},$createdAt',
+      );
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Report copied as CSV.')),
+    );
+  }
+
+  List<PaymentRecord> _applyFilters(
+    List<PaymentRecord> payments, {
+    required String providerFilter,
+    required String planFilter,
+  }) {
+    return payments.where((payment) {
+      if (providerFilter != 'All' && payment.provider != providerFilter) {
+        return false;
+      }
+      if (planFilter != 'All' && payment.planGranted != planFilter) {
+        return false;
+      }
+      if (_startDate != null || _endDate != null) {
+        if (payment.createdAt == null) return false;
+        final created = payment.createdAt!;
+        if (_startDate != null && created.isBefore(_startDate!)) return false;
+        if (_endDate != null) {
+          final endOfDay = DateTime(
+            _endDate!.year,
+            _endDate!.month,
+            _endDate!.day,
+            23,
+            59,
+            59,
+          );
+          if (created.isAfter(endOfDay)) return false;
+        }
+      }
+      return true;
+    }).toList();
   }
 
   @override
