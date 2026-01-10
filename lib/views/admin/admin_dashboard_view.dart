@@ -19,7 +19,6 @@ class AdminDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final admin = context.watch<AdminController>();
     final user = auth.currentUser;
 
     return DefaultTabController(
@@ -36,6 +35,7 @@ class AdminDashboardView extends StatelessWidget {
               icon: const Icon(Icons.logout),
               onPressed: () async {
                 await auth.logout();
+                if (!context.mounted) return;
                 Navigator.pushReplacementNamed(context, '/login');
               },
             ),
@@ -44,13 +44,14 @@ class AdminDashboardView extends StatelessWidget {
             tabs: [
               Tab(text: 'Users', icon: Icon(Icons.people_outline)),
               Tab(text: 'Payments/Reports', icon: Icon(Icons.receipt_long)),
+              Tab(text: 'Tickets', icon: Icon(Icons.support_agent)),
               Tab(text: 'Notifications', icon: Icon(Icons.notifications_none)),
               Tab(text: 'Terms & Privacy', icon: Icon(Icons.description_outlined)),
               Tab(text: 'Tickets', icon: Icon(Icons.support_agent)),
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
             _UsersTab(controller: admin),
             _PaymentsTab(controller: admin),
@@ -80,6 +81,7 @@ class _UsersTabState extends State<_UsersTab> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.read<AdminController>();
     return StreamBuilder<List<User>>(
       stream: widget.controller.streamUsers(),
       builder: (context, snapshot) {
@@ -365,6 +367,276 @@ class _PaymentsTab extends StatefulWidget {
   const _PaymentsTab({required this.controller});
 
   final AdminController controller;
+  final User user;
+
+  @override
+  State<_PaymentsTab> createState() => _PaymentsTabState();
+}
+
+class _PaymentsTabState extends State<_PaymentsTab> {
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String _providerFilter = 'All';
+  String _planFilter = 'All';
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _startDate = picked);
+  }
+
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _endDate = picked);
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+      _providerFilter = 'All';
+      _planFilter = 'All';
+    });
+  }
+
+  void _exportCsv(List<PaymentRecord> payments) {
+    final buffer = StringBuffer()
+      ..writeln('userId,amount,provider,planGranted,createdAt');
+    for (final payment in payments) {
+      final createdAt = payment.createdAt == null
+          ? ''
+          : _formatDate(payment.createdAt!);
+      buffer.writeln(
+        '${payment.userId},${payment.amountValue.toStringAsFixed(2)},'
+        '${payment.provider},${payment.planGranted},$createdAt',
+      );
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Report copied as CSV.')),
+    );
+  }
+
+  List<PaymentRecord> _applyFilters(
+    List<PaymentRecord> payments, {
+    required String providerFilter,
+    required String planFilter,
+  }) {
+    return payments.where((payment) {
+      if (providerFilter != 'All' && payment.provider != providerFilter) {
+        return false;
+      }
+      if (planFilter != 'All' && payment.planGranted != planFilter) {
+        return false;
+      }
+      if (_startDate != null || _endDate != null) {
+        if (payment.createdAt == null) return false;
+        final created = payment.createdAt!;
+        if (_startDate != null && created.isBefore(_startDate!)) return false;
+        if (_endDate != null) {
+          final endOfDay = DateTime(
+            _endDate!.year,
+            _endDate!.month,
+            _endDate!.day,
+            23,
+            59,
+            59,
+          );
+          if (created.isAfter(endOfDay)) return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PaymentRecord>>(
+      stream: widget.controller.streamPayments(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _AdminErrorState(error: snapshot.error);
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final tickets = snapshot.data!;
+        if (tickets.isEmpty) {
+          return const _EmptyState(message: 'No tickets submitted yet.');
+        }
+
+        final providers = {
+          'All',
+          ...payments.map((payment) => payment.provider).where((p) => p.isNotEmpty),
+        }.toList();
+        final plans = {
+          'All',
+          ...payments.map((payment) => payment.planGranted).where((p) => p.isNotEmpty),
+        }.toList();
+
+        final providerValue =
+            providers.contains(_providerFilter) ? _providerFilter : 'All';
+        final planValue = plans.contains(_planFilter) ? _planFilter : 'All';
+        if (providerValue != _providerFilter) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _providerFilter = providerValue);
+          });
+        }
+        if (planValue != _planFilter) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _planFilter = planValue);
+          });
+        }
+
+        final filtered = _applyFilters(
+          payments,
+          providerFilter: providerValue,
+          planFilter: planValue,
+        );
+        final totalAmount = filtered.fold<double>(
+          0,
+          (sum, payment) => sum + payment.amountValue,
+        );
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _pickStartDate,
+                        icon: const Icon(Icons.date_range),
+                        label: Text(
+                          _startDate == null
+                              ? 'Start date'
+                              : _formatDate(_startDate!),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _pickEndDate,
+                        icon: const Icon(Icons.event),
+                        label: Text(
+                          _endDate == null ? 'End date' : _formatDate(_endDate!),
+                        ),
+                      ),
+                      DropdownButton<String>(
+                        value: providerValue,
+                        items: providers
+                            .map((provider) => DropdownMenuItem(
+                                  value: provider,
+                                  child: Text('Provider: $provider'),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _providerFilter = value);
+                        },
+                      ),
+                      DropdownButton<String>(
+                        value: planValue,
+                        items: plans
+                            .map((plan) => DropdownMenuItem(
+                                  value: plan,
+                                  child: Text('Plan: $plan'),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _planFilter = value);
+                        },
+                      ),
+                      TextButton(
+                        onPressed: _clearFilters,
+                        child: const Text('Clear filters'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Total payments: ${filtered.length}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          Text(
+                            'Total Rs ${totalAmount.toStringAsFixed(2)}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: filtered.isEmpty
+                                ? null
+                                : () => _exportCsv(filtered),
+                            icon: const Icon(Icons.download),
+                            label: const Text('Export CSV'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const _EmptyState(message: 'No payments match filters.')
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final payment = filtered[index];
+                        return ListTile(
+                          title: Text(
+                            'Rs ${payment.amountValue.toStringAsFixed(2)} · ${payment.provider}',
+                          ),
+                          subtitle: Text(
+                            'User: ${payment.userId}\nPlan: ${payment.planGranted}',
+                          ),
+                          trailing: Text(
+                            payment.createdAt == null
+                                ? 'Unknown'
+                                : _formatDate(payment.createdAt!),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PaymentsTab extends StatefulWidget {
+  const _PaymentsTab({required this.controller});
+
+  final AdminController controller;
 
   @override
   State<_PaymentsTab> createState() => _PaymentsTabState();
@@ -633,10 +905,12 @@ class _PaymentsTabState extends State<_PaymentsTab> {
 class _NotificationsTab extends StatelessWidget {
   const _NotificationsTab({required this.controller});
 
-  final AdminController controller;
+class _NotificationsTab extends StatelessWidget {
+  const _NotificationsTab();
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.read<AdminController>();
     return StreamBuilder<List<AdminNotification>>(
       stream: controller.streamNotifications(),
       builder: (context, snapshot) {
@@ -695,12 +969,11 @@ class _NotificationsTab extends StatelessWidget {
 }
 
 class _LegalDocsTab extends StatelessWidget {
-  const _LegalDocsTab({required this.controller});
-
-  final AdminController controller;
+  const _LegalDocsTab();
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.read<AdminController>();
     return StreamBuilder<List<LegalDoc>>(
       stream: controller.streamLegalDocs(),
       builder: (context, snapshot) {
@@ -778,58 +1051,17 @@ class _AdminErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalized = _normalizeError(error);
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _ErrorBanner(error: normalized),
-          const SizedBox(height: 12),
-          const Text('Please try again later.'),
-        ],
-      ),
-    );
-  }
-
-  AppError _normalizeError(Object? error) {
-    if (error is AppError) return error;
-    return AppError(
-      code: 'ADMIN_DASHBOARD_ERROR',
-      message: 'Unable to load admin data.',
-      original: error,
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  final AppError error;
-  const _ErrorBanner({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.red.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${error.message}\nCode: ${error.code}',
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        ),
+    return Center(
+      child: Text(
+        error == null ? 'Something went wrong.' : 'Error: $error',
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
   }
 }
 
-String _formatDate(DateTime date) {
-  final local = date.toLocal();
-  return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
-      '${local.day.toString().padLeft(2, '0')}';
+String _formatDate(DateTime value) {
+  return '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
 }
