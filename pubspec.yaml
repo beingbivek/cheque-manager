@@ -64,6 +64,7 @@ dependencies:
   # Export helpers
   path_provider: ^2.1.5
   share_plus: ^10.0.2
+  shared_preferences: ^2.3.2
 
 
 dev_dependencies:
