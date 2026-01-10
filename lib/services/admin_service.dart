@@ -14,110 +14,174 @@ class AdminService {
   final FirestoreRepository _repository;
 
   Stream<List<User>> streamUsers() {
-    try {
-      return _repository.users
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) =>
-                snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_USERS_STREAM',
-          'Failed to load users.',
-          error,
-        );
-      });
-    } catch (error) {
-      return Stream.error(
-        _mapError('ADMIN_USERS_STREAM', 'Failed to load users.', error),
-      );
-    }
+    return _repository.users
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_USERS_STREAM',
+            message: 'Failed to stream users.',
+          );
+        });
   }
 
   Stream<List<PaymentRecord>> streamPayments() {
-    try {
-      return _repository.payments
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => PaymentRecord.fromMap(doc.id, doc.data()))
-                .toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_PAYMENTS_STREAM',
-          'Failed to load payments.',
-          error,
-        );
-      });
-    } catch (error) {
-      return Stream.error(
-        _mapError('ADMIN_PAYMENTS_STREAM', 'Failed to load payments.', error),
-      );
-    }
+    return _repository.payments
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => PaymentRecord.fromMap(doc.id, doc.data()))
+            .toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_PAYMENTS_STREAM',
+            message: 'Failed to stream payments.',
+          );
+        });
   }
 
   Stream<List<AdminNotification>> streamNotifications() {
-    try {
-      return _repository.adminNotifications
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => AdminNotification.fromMap(doc.id, doc.data()))
-                .toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_NOTIFICATIONS_STREAM',
-          'Failed to load notifications.',
-          error,
-        );
-      });
-    } catch (error) {
-      return Stream.error(
-        _mapError(
-          'ADMIN_NOTIFICATIONS_STREAM',
-          'Failed to load notifications.',
-          error,
-        ),
-      );
-    }
+    return _repository.adminNotifications
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AdminNotification.fromMap(doc.id, doc.data()))
+            .toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_NOTIFICATIONS_STREAM',
+            message: 'Failed to stream notifications.',
+          );
+        });
   }
 
   Stream<List<LegalDoc>> streamLegalDocs() {
+    return _repository.legalDocs
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => LegalDoc.fromMap(doc.id, doc.data())).toList())
+        .handleError((error, stackTrace) {
+          throw _wrapError(
+            error,
+            code: 'ADMIN_LEGAL_DOCS_STREAM',
+            message: 'Failed to stream legal documents.',
+          );
+        });
+  }
+
+  Future<void> createNotification({
+    required String title,
+    required String message,
+  }) async {
     try {
-      return _repository.legalDocs
-          .orderBy('updatedAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => LegalDoc.fromMap(doc.id, doc.data()))
-                .toList(),
-          )
-          .handleError((error) {
-        throw _mapError(
-          'ADMIN_LEGAL_DOCS_STREAM',
-          'Failed to load legal documents.',
-          error,
-        );
+      final doc = _repository.adminNotifications.doc();
+      await doc.set({
+        'title': title,
+        'message': message,
+        'createdAt': FieldValue.serverTimestamp(),
       });
-    } catch (error) {
-      return Stream.error(
-        _mapError(
-          'ADMIN_LEGAL_DOCS_STREAM',
-          'Failed to load legal documents.',
-          error,
-        ),
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to create notification.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_NOTIFICATION_CREATE',
+        message: 'Unknown error while creating notification.',
+        original: e,
       );
     }
   }
 
-  AppError _mapError(String code, String message, Object error) {
-    if (error is AppError) return error;
+  Future<void> updateLegalDoc({
+    required String docId,
+    required String title,
+    required String content,
+  }) async {
+    try {
+      await _repository.legalDocs.doc(docId).set(
+        {
+          'title': title,
+          'content': content,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update legal document.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_LEGAL_DOC_UPDATE',
+        message: 'Unknown error while updating legal document.',
+        original: e,
+      );
+    }
+  }
+
+  Future<void> updateUserStatus({
+    required String userId,
+    required UserStatus status,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'status': status.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update user status.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_USER_STATUS_UPDATE',
+        message: 'Unknown error while updating user status.',
+        original: e,
+      );
+    }
+  }
+
+  Future<void> updateUserTier({
+    required String userId,
+    required UserTier tier,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'tier': tier.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update user tier.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_USER_TIER_UPDATE',
+        message: 'Unknown error while updating user tier.',
+        original: e,
+      );
+    }
+  }
+
+  AppError _wrapError(
+    Object error, {
+    required String code,
+    required String message,
+  }) {
+    if (error is AppError) {
+      return error;
+    }
     if (error is FirebaseException) {
       return AppError(
         code: 'FIRESTORE_${error.code.toUpperCase()}',
@@ -125,6 +189,10 @@ class AdminService {
         original: error,
       );
     }
-    return AppError(code: code, message: message, original: error);
+    return AppError(
+      code: code,
+      message: message,
+      original: error,
+    );
   }
 }
