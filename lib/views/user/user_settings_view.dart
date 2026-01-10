@@ -3,15 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../../controllers/cheque_controller.dart';
 
-class NotificationSettingsView extends StatefulWidget {
-  const NotificationSettingsView({super.key});
+class UserSettingsView extends StatefulWidget {
+  const UserSettingsView({super.key});
 
   @override
-  State<NotificationSettingsView> createState() =>
-      _NotificationSettingsViewState();
+  State<UserSettingsView> createState() => _UserSettingsViewState();
 }
 
-class _NotificationSettingsViewState extends State<NotificationSettingsView> {
+class _UserSettingsViewState extends State<UserSettingsView> {
   static const int _minDays = 1;
   static const int _maxDays = 30;
 
@@ -33,7 +32,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notification Lead Time'),
+        title: const Text('User Settings'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

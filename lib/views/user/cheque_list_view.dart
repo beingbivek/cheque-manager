@@ -9,7 +9,7 @@ import '../../models/app_error.dart';
 import '../../models/cheque.dart';
 import '../../routes/app_routes.dart';
 import 'cheque_form_view.dart';
-import 'notification_settings_view.dart';
+import 'user_settings_view.dart';
 
 class ChequeListView extends StatefulWidget {
   const ChequeListView({super.key});
@@ -63,7 +63,7 @@ class _ChequeListViewState extends State<ChequeListView> {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const NotificationSettingsView(),
+                    builder: (_) => const UserSettingsView(),
                   ),
                 );
               },
