@@ -5,8 +5,10 @@ import '../../controllers/admin_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/admin_notification.dart';
 import '../../models/legal_doc.dart';
-import 'create_notification_dialog.dart';
-import 'edit_legal_doc_dialog.dart';
+import '../../models/payment_record.dart';
+import '../../models/user.dart';
+import 'admin_legal_doc_dialog.dart';
+import 'admin_notification_dialog.dart';
 
 class AdminDashboardView extends StatelessWidget {
   const AdminDashboardView({super.key});
@@ -81,9 +83,61 @@ class _NotificationsTab extends StatelessWidget {
       builder: (_) => const CreateNotificationDialog(),
     );
 
-    if (!context.mounted || created != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notification created successfully.')),
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AdminNotification>>(
+      stream: controller.streamNotifications(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _AdminErrorState(error: snapshot.error);
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final notifications = snapshot.data!;
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await showDialog<bool>(
+                      context: context,
+                      builder: (_) => const AdminNotificationDialog(),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Notification'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: notifications.isEmpty
+                  ? const _EmptyState(message: 'No admin notifications yet.')
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: notifications.length,
+                      separatorBuilder: (_, __) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final notification = notifications[index];
+                        return ListTile(
+                          title: Text(notification.title),
+                          subtitle: Text(notification.message),
+                          trailing: Text(
+                            notification.createdAt == null
+                                ? 'Unknown'
+                                : _formatDate(notification.createdAt!),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -107,10 +161,24 @@ class _NotificationsTab extends StatelessWidget {
                 'Notifications',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              ElevatedButton.icon(
-                onPressed: () => _showCreateDialog(context),
-                icon: const Icon(Icons.add),
-                label: const Text('New Notification'),
+              trailing: Wrap(
+                spacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    doc.updatedAt == null ? 'Unknown' : _formatDate(doc.updatedAt!),
+                  ),
+                  IconButton(
+                    tooltip: 'Edit',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AdminLegalDocDialog(doc: doc),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

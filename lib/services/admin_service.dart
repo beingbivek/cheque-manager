@@ -82,11 +82,17 @@ class AdminService {
         'message': message,
         'createdAt': FieldValue.serverTimestamp(),
       });
-    } catch (error) {
-      throw _wrapError(
-        error,
-        code: 'ADMIN_CREATE_NOTIFICATION',
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
         message: 'Failed to create notification.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_NOTIFICATION_CREATE',
+        message: 'Unknown error while creating notification.',
+        original: e,
       );
     }
   }
@@ -97,16 +103,25 @@ class AdminService {
     required String content,
   }) async {
     try {
-      await _repository.legalDocs.doc(docId).update({
-        'title': title,
-        'content': content,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (error) {
-      throw _wrapError(
-        error,
-        code: 'ADMIN_UPDATE_LEGAL_DOC',
+      await _repository.legalDocs.doc(docId).set(
+        {
+          'title': title,
+          'content': content,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
         message: 'Failed to update legal document.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_LEGAL_DOC_UPDATE',
+        message: 'Unknown error while updating legal document.',
+        original: e,
       );
     }
   }
