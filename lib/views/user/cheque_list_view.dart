@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'upgrade_banner.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/cheque_controller.dart';
@@ -33,6 +34,37 @@ class _ChequeListViewState extends State<ChequeListView> {
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       setState(() => _searchQuery = value.trim().toLowerCase());
     });
+  }
+
+  void _exportCheques() {
+    final controller = context.read<ChequeController>();
+    final filtered = controller.cheques.where((c) {
+      if (_searchQuery.isEmpty) return true;
+      final partyName = controller.displayPartyName(c).toLowerCase();
+      return partyName.contains(_searchQuery);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No cheques to export.')),
+      );
+      return;
+    }
+
+    final buffer = StringBuffer()
+      ..writeln('partyName,chequeNumber,amount,date,status');
+    for (final cheque in filtered) {
+      final partyName = controller.displayPartyName(cheque);
+      final date = cheque.date.toLocal().toString().split(' ').first;
+      buffer.writeln(
+        '$partyName,${cheque.chequeNumber},${cheque.amount.toStringAsFixed(2)},'
+        '$date,${cheque.status.name}',
+      );
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cheques copied as CSV.')),
+    );
   }
 
   @override
@@ -79,21 +111,8 @@ class _ChequeListViewState extends State<ChequeListView> {
               onPressed: () => controller.refreshStatuses(),
             ),
             IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const UserSettingsView(),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: 'Terms & Privacy',
-              icon: const Icon(Icons.description_outlined),
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.termsPrivacy);
-              },
+              icon: const Icon(Icons.download),
+              onPressed: _exportCheques,
             ),
           ],
         ),
