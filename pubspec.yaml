@@ -41,6 +41,7 @@ dependencies:
   # Auth (email/password + Google)
   firebase_auth: ^5.3.0
   google_sign_in: ^6.2.1
+  google_sign_in_web: ^0.12.4+2
 
   # Firestore for cheques data
   cloud_firestore: ^5.4.4

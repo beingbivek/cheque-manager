@@ -1,6 +1,7 @@
 // lib/services/auth_service.dart
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/user.dart';
@@ -104,6 +105,20 @@ class AuthService {
 
   Future<User> signInWithGoogle() async {
     try {
+      if (kIsWeb) {
+        final provider = firebase_auth.GoogleAuthProvider();
+        final result =
+            await firebase_auth.FirebaseAuth.instance.signInWithPopup(provider);
+        final user = result.user;
+        if (user == null) {
+          throw AppError(
+            code: 'AUTH_GOOGLE_NO_USER',
+            message: 'Google sign-in failed to return a user.',
+          );
+        }
+        return await createOrGetUser(user);
+      }
+
       // Native (Android/iOS) flow
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
