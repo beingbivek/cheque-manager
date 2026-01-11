@@ -22,6 +22,7 @@ class ChequeController extends ChangeNotifier {
   AppError? _lastError;
   bool _isLoading = false;
   Timer? _refreshTimer;
+  int _nearThresholdDays = 3;
 
   void setUser(User? user) {
     _user = user;
@@ -34,13 +35,14 @@ class ChequeController extends ChangeNotifier {
       _cheques = [];
       _parties = [];
       _lastError = null;
+      _nearThresholdDays = 3;
       notifyListeners();
     }
   }
 
   bool get isLoading => _isLoading;
   AppError? get lastError => _lastError;
-  int get nearThresholdDays => _user?.notificationLeadDays ?? 3;
+  int get nearThresholdDays => _nearThresholdDays;
 
   List<Cheque> get cheques => _cheques;
   List<Party> get parties => _parties;
