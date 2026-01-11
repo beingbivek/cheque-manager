@@ -20,6 +20,7 @@ class AdminDashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final user = auth.currentUser;
+    final admin = context.read<AdminController>();
 
     return DefaultTabController(
       length: 5,
@@ -47,16 +48,15 @@ class AdminDashboardView extends StatelessWidget {
               Tab(text: 'Tickets', icon: Icon(Icons.support_agent)),
               Tab(text: 'Notifications', icon: Icon(Icons.notifications_none)),
               Tab(text: 'Terms & Privacy', icon: Icon(Icons.description_outlined)),
-              Tab(text: 'Tickets', icon: Icon(Icons.support_agent)),
             ],
           ),
         ),
-        body: const TabBarView(
+        body: TabBarView(
           children: [
             _UsersTab(controller: admin),
             _PaymentsTab(controller: admin),
-            _NotificationsTab(controller: admin),
-            _LegalDocsTab(controller: admin),
+            const _NotificationsTab(),
+            const _LegalDocsTab(),
             _TicketsTab(controller: admin),
           ],
         ),
@@ -81,7 +81,6 @@ class _UsersTabState extends State<_UsersTab> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.read<AdminController>();
     return StreamBuilder<List<User>>(
       stream: widget.controller.streamUsers(),
       builder: (context, snapshot) {
@@ -106,6 +105,10 @@ class _UsersTabState extends State<_UsersTab> {
 
         return Column(
           children: [
+            _KpiSummaryCard(
+              controller: widget.controller,
+              users: users,
+            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -206,6 +209,107 @@ class _UsersTabState extends State<_UsersTab> {
                     ),
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _KpiSummaryCard extends StatelessWidget {
+  const _KpiSummaryCard({
+    required this.controller,
+    required this.users,
+  });
+
+  final AdminController controller;
+  final List<User> users;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PaymentRecord>>(
+      stream: controller.streamPayments(),
+      builder: (context, paymentsSnapshot) {
+        if (paymentsSnapshot.hasError) {
+          return _AdminErrorState(error: paymentsSnapshot.error);
+        }
+        if (!paymentsSnapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final payments = paymentsSnapshot.data!;
+        final totalAmount = payments.fold<double>(
+          0,
+          (sum, payment) => sum + payment.amountValue,
+        );
+
+        return StreamBuilder<List<Ticket>>(
+          stream: controller.streamTickets(),
+          builder: (context, ticketsSnapshot) {
+            if (ticketsSnapshot.hasError) {
+              return _AdminErrorState(error: ticketsSnapshot.error);
+            }
+            if (!ticketsSnapshot.hasData) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final tickets = ticketsSnapshot.data!;
+            final openCount =
+                tickets.where((ticket) => ticket.status == TicketStatus.open).length;
+            final resolvedCount = tickets
+                .where((ticket) => ticket.status == TicketStatus.resolved)
+                .length;
+            final proCount = users.where((user) => user.tier == UserTier.pro).length;
+            final freeCount =
+                users.where((user) => user.tier == UserTier.free).length;
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: 180,
+                        child: _SummaryTile(
+                          label: 'Total payments',
+                          value: payments.length.toString(),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 180,
+                        child: _SummaryTile(
+                          label: 'Total amount',
+                          value: 'Rs ${totalAmount.toStringAsFixed(2)}',
+                        ),
+                      ),
+                      SizedBox(
+                        width: 180,
+                        child: _SummaryTile(
+                          label: 'Pro vs Free',
+                          value: '$proCount / $freeCount',
+                        ),
+                      ),
+                      SizedBox(
+                        width: 180,
+                        child: _SummaryTile(
+                          label: 'Open vs Resolved',
+                          value: '$openCount / $resolvedCount',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -774,9 +878,6 @@ class _PaymentsTabState extends State<_PaymentsTab> {
 }
 
 class _NotificationsTab extends StatelessWidget {
-  const _NotificationsTab({required this.controller});
-
-class _NotificationsTab extends StatelessWidget {
   const _NotificationsTab();
 
   void _exportCsv(BuildContext context, List<AdminNotification> notifications) {
@@ -950,6 +1051,46 @@ class _EmptyState extends StatelessWidget {
         message,
         style: Theme.of(context).textTheme.bodyLarge,
       ),
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({
+    required this.label,
+    required this.count,
+  });
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text('$label: $count'),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: textTheme.bodyMedium),
+        const SizedBox(height: 4),
+        Text(value, style: textTheme.titleLarge),
+      ],
     );
   }
 }
