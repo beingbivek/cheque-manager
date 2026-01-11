@@ -16,7 +16,6 @@ class ChequeController extends ChangeNotifier {
   final PartyService _partyService = PartyService();
   final UserService _userService = UserService();
 
-  int _nearThresholdDays = 3;
   User? _user;
   List<Cheque> _cheques = [];
   List<Party> _parties = [];
@@ -41,7 +40,7 @@ class ChequeController extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   AppError? get lastError => _lastError;
-  int get nearThresholdDays => _nearThresholdDays;
+  int get nearThresholdDays => _user?.notificationLeadDays ?? 3;
 
   List<Cheque> get cheques => _cheques;
   List<Party> get parties => _parties;
@@ -82,9 +81,49 @@ class ChequeController extends ChangeNotifier {
     return 'Unknown';
   }
 
-  void setNearThresholdDays(int days) {
-    _nearThresholdDays = days;
-    notifyListeners();
+  Future<void> updateNotificationLeadDays(int days) async {
+    if (_user == null) {
+      _lastError = AppError(
+        code: 'NO_USER',
+        message: 'User not logged in.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    if (days < 1) {
+      _lastError = AppError(
+        code: 'INVALID_LEAD_DAYS',
+        message: 'Lead time must be at least 1 day.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    _setLoading(true);
+    try {
+      _lastError = null;
+      await _userService.updateNotificationLeadDays(
+        userId: _user!.uid,
+        days: days,
+      );
+
+      _user = _user!.copyWith(notificationLeadDays: days);
+
+      await _chequeService.resetNotificationsForUser(_user!.uid);
+      _cheques = _cheques
+          .map((c) => c.copyWith(notificationSent: false))
+          .toList();
+      notifyListeners();
+    } on AppError catch (e) {
+      _lastError = e;
+      notifyListeners();
+      return;
+    } finally {
+      _setLoading(false);
+    }
+
+    await refreshStatuses();
   }
 
   Future<void> loadData() async {
@@ -543,7 +582,7 @@ class ChequeController extends ChangeNotifier {
       return ChequeStatus.expired;
     }
 
-    if (due.difference(d).inDays <= _nearThresholdDays) {
+    if (due.difference(d).inDays <= nearThresholdDays) {
       return ChequeStatus.near;
     }
 
@@ -580,7 +619,7 @@ class ChequeController extends ChangeNotifier {
     }
 
     if (cheque.isNear(
-      thresholdDays: _nearThresholdDays,
+      thresholdDays: nearThresholdDays,
       referenceDate: day,
     )) {
       return ChequeStatus.near;
