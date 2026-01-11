@@ -63,7 +63,7 @@ class _PartyListViewState extends State<PartyListView> {
           ),
         ],
       ),
-      body: Column(
+      body: ListView(
         children: [
           if (controller.isLoading)
             const LinearProgressIndicator(minHeight: 2),
@@ -115,39 +115,43 @@ class _PartyListViewState extends State<PartyListView> {
               ],
             ),
           ),
-          Expanded(
-            child: parties.isEmpty
-                ? const Center(child: Text('No parties yet.'))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: parties.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (context, index) {
-                      final party = parties[index];
-                      return ListTile(
-                        title: Text(party.name),
-                        subtitle: Text(
-                          [
-                            if (party.phone != null && party.phone!.isNotEmpty)
-                              'Phone: ${party.phone}',
-                            if (party.notes != null && party.notes!.isNotEmpty)
-                              'Notes: ${party.notes}',
-                            'Status: ${party.status.name}',
-                          ].join('\n'),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () async {
-                            await showDialog(
-                              context: context,
-                              builder: (_) => _PartyDialog(party: party),
-                            );
-                          },
-                        ),
+          if (parties.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text('No parties yet.')),
+            )
+          else
+            ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: parties.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              separatorBuilder: (_, __) => const Divider(),
+              itemBuilder: (context, index) {
+                final party = parties[index];
+                return ListTile(
+                  title: Text(party.name),
+                  subtitle: Text(
+                    [
+                      if (party.phone != null && party.phone!.isNotEmpty)
+                        'Phone: ${party.phone}',
+                      if (party.notes != null && party.notes!.isNotEmpty)
+                        'Notes: ${party.notes}',
+                      'Status: ${party.status.name}',
+                    ].join('\n'),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      await showDialog(
+                        context: context,
+                        builder: (_) => _PartyDialog(party: party),
                       );
                     },
                   ),
-          ),
+                );
+              },
+            ),
         ],
       ),
     );

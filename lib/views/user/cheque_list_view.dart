@@ -159,9 +159,13 @@ class _ChequeListViewState extends State<ChequeListView> {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () =>
-                  Navigator.pushNamed(context, '/settings'),
+              icon: const Icon(Icons.add),
+              tooltip: 'Add cheque',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChequeFormView()),
+                );
+              },
             ),
             IconButton(
               icon: const Icon(Icons.support_agent),
@@ -174,11 +178,6 @@ class _ChequeListViewState extends State<ChequeListView> {
                   Navigator.pushNamed(context, '/notifications'),
             ),
             IconButton(
-              icon: const Icon(Icons.groups),
-              onPressed: () =>
-                  Navigator.pushNamed(context, '/parties'),
-            ),
-            IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => controller.refreshStatuses(),
             ),
@@ -188,193 +187,75 @@ class _ChequeListViewState extends State<ChequeListView> {
             ),
           ],
         ),
-        body: Column(
-          children: [
-            const UpgradeBanner(),
-            _UsageSummary(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _QuickAction(
-                        label: 'Settings',
-                        icon: Icons.settings,
-                        onTap: () => Navigator.pushNamed(context, '/settings'),
-                      ),
-                      _QuickAction(
-                        label: 'Notifications',
-                        icon: Icons.notifications,
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/notifications'),
-                      ),
-                      _QuickAction(
-                        label: 'Tickets',
-                        icon: Icons.support_agent,
-                        onTap: () => Navigator.pushNamed(context, '/tickets'),
-                      ),
-                      _QuickAction(
-                        label: 'Parties',
-                        icon: Icons.groups,
-                        onTap: () => Navigator.pushNamed(context, '/parties'),
-                      ),
-                    ],
-                  ),
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: Column(
+                  children: [
+                    const UpgradeBanner(),
+                    _UsageSummary(),
+                    if (controller.lastError != null)
+                      _ErrorBanner(error: controller.lastError!),
+                    const _QuickActionsCard(),
+                    _FiltersCard(
+                      onSearchChanged: _onSearchChanged,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                      onStartDateTap: _pickStartDate,
+                      onEndDateTap: _pickEndDate,
+                      onClearDates: () {
+                        setState(() {
+                          _startDate = null;
+                          _endDate = null;
+                        });
+                      },
+                      exportCurrentTab: _exportCurrentTab,
+                      onExportToggle: (value) =>
+                          setState(() => _exportCurrentTab = value),
+                    ),
+                    _StatusSummaryCard(
+                      cashed: sections[ChequeStatus.cashed]?.length ?? 0,
+                      near: sections[ChequeStatus.near]?.length ?? 0,
+                      valid: sections[ChequeStatus.valid]?.length ?? 0,
+                      expired: sections[ChequeStatus.expired]?.length ?? 0,
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            if (controller.lastError != null)
-              _ErrorBanner(error: controller.lastError!),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Search by party name',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: _onSearchChanged,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Date range',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _pickStartDate,
-                              icon: const Icon(Icons.date_range),
-                              label: Text(
-                                _startDate == null
-                                    ? 'Start date'
-                                    : _formatDate(_startDate!),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _pickEndDate,
-                              icon: const Icon(Icons.event),
-                              label: Text(
-                                _endDate == null
-                                    ? 'End date'
-                                    : _formatDate(_endDate!),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: (_startDate == null && _endDate == null)
-                              ? null
-                              : () => setState(() {
-                                    _startDate = null;
-                                    _endDate = null;
-                                  }),
-                          icon: const Icon(Icons.clear),
-                          label: const Text('Clear dates'),
-                        ),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Export current tab'),
-                        subtitle: const Text(
-                          'Only export cheques from the selected status tab.',
-                        ),
-                        value: _exportCurrentTab,
-                        onChanged: (value) =>
-                            setState(() => _exportCurrentTab = value),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _SummaryChip(
-                    label: 'Cashed',
-                    count: sections[ChequeStatus.cashed]?.length ?? 0,
-                  ),
-                  _SummaryChip(
-                    label: 'Near',
-                    count: sections[ChequeStatus.near]?.length ?? 0,
-                  ),
-                  _SummaryChip(
-                    label: 'Valid',
-                    count: sections[ChequeStatus.valid]?.length ?? 0,
-                  ),
-                  _SummaryChip(
-                    label: 'Expired',
-                    count: sections[ChequeStatus.expired]?.length ?? 0,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: controller.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                children: [
-                  _ChequeList(
-                    cheques: sections[ChequeStatus.cashed] ?? [],
-                    searchQuery: _searchQuery,
-                    startDate: _startDate,
-                    endDate: _endDate,
-                  ),
-                  _ChequeList(
-                    cheques: sections[ChequeStatus.near] ?? [],
-                    searchQuery: _searchQuery,
-                    startDate: _startDate,
-                    endDate: _endDate,
-                  ),
-                  _ChequeList(
-                    cheques: sections[ChequeStatus.valid] ?? [],
-                    searchQuery: _searchQuery,
-                    startDate: _startDate,
-                    endDate: _endDate,
-                  ),
-                  _ChequeList(
-                    cheques: sections[ChequeStatus.expired] ?? [],
-                    searchQuery: _searchQuery,
-                    startDate: _startDate,
-                    endDate: _endDate,
-                  ),
-                ],
               ),
             ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ChequeFormView()),
-            );
-          },
-          child: const Icon(Icons.add),
+          body: controller.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : TabBarView(
+                  children: [
+                    _ChequeList(
+                      cheques: sections[ChequeStatus.cashed] ?? [],
+                      searchQuery: _searchQuery,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                    ),
+                    _ChequeList(
+                      cheques: sections[ChequeStatus.near] ?? [],
+                      searchQuery: _searchQuery,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                    ),
+                    _ChequeList(
+                      cheques: sections[ChequeStatus.valid] ?? [],
+                      searchQuery: _searchQuery,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                    ),
+                    _ChequeList(
+                      cheques: sections[ChequeStatus.expired] ?? [],
+                      searchQuery: _searchQuery,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -506,25 +387,164 @@ class _SummaryChip extends StatelessWidget {
   }
 }
 
-class _QuickAction extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
+class _QuickActionsCard extends StatelessWidget {
+  const _QuickActionsCard();
 
-  const _QuickAction({
-    required this.label,
-    required this.icon,
-    required this.onTap,
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/notifications'),
+                  icon: const Icon(Icons.notifications),
+                  label: const Text('Notifications'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/tickets'),
+                  icon: const Icon(Icons.support_agent),
+                  label: const Text('Tickets'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FiltersCard extends StatelessWidget {
+  final ValueChanged<String> onSearchChanged;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final VoidCallback onStartDateTap;
+  final VoidCallback onEndDateTap;
+  final VoidCallback onClearDates;
+  final bool exportCurrentTab;
+  final ValueChanged<bool> onExportToggle;
+
+  const _FiltersCard({
+    required this.onSearchChanged,
+    required this.startDate,
+    required this.endDate,
+    required this.onStartDateTap,
+    required this.onEndDateTap,
+    required this.onClearDates,
+    required this.exportCurrentTab,
+    required this.onExportToggle,
+  });
+
+  String _formatDate(DateTime date) {
+    return date.toLocal().toString().split(' ').first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ExpansionTile(
+        title: const Text('Filters'),
+        subtitle: const Text('Search and refine cheque lists'),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          TextField(
+            decoration: const InputDecoration(
+              labelText: 'Search by party name',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+            ),
+            onChanged: onSearchChanged,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onStartDateTap,
+                  icon: const Icon(Icons.date_range),
+                  label: Text(
+                    startDate == null ? 'Start date' : _formatDate(startDate!),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onEndDateTap,
+                  icon: const Icon(Icons.event),
+                  label: Text(
+                    endDate == null ? 'End date' : _formatDate(endDate!),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (startDate != null || endDate != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onClearDates,
+                icon: const Icon(Icons.clear),
+                label: const Text('Clear dates'),
+              ),
+            ),
+          ],
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Export current tab'),
+            subtitle: const Text(
+              'Only export cheques from the selected status tab.',
+            ),
+            value: exportCurrentTab,
+            onChanged: onExportToggle,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusSummaryCard extends StatelessWidget {
+  final int cashed;
+  final int near;
+  final int valid;
+  final int expired;
+
+  const _StatusSummaryCard({
+    required this.cashed,
+    required this.near,
+    required this.valid,
+    required this.expired,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 140,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon),
-        label: Text(label),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SummaryChip(label: 'Cashed', count: cashed),
+              _SummaryChip(label: 'Near', count: near),
+              _SummaryChip(label: 'Valid', count: valid),
+              _SummaryChip(label: 'Expired', count: expired),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../models/cheque.dart';
 import '../routes/app_routes.dart';
@@ -23,9 +25,13 @@ class NotificationService {
 
   String? _pendingChequeId;
   String? _pendingRoute;
-  bool _webNotificationsSupported = true;
-
   Future<void> init() async {
+    if (kIsWeb) {
+      debugPrint('Web notifications are not supported.');
+      return;
+    }
+
+    tz.initializeTimeZones();
     const AndroidInitializationSettings androidInit =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -40,7 +46,6 @@ class NotificationService {
       android: androidInit,
       iOS: darwinInit,
       macOS: darwinInit,
-      web: WebInitializationSettings(),
     );
 
     await _plugin.initialize(
@@ -57,7 +62,7 @@ class NotificationService {
         if (route == AppRoutes.chequeDetails && id != null) {
           _handleNotificationTap(id);
         } else if (route == AppRoutes.userNotifications) {
-          _handleRouteTap(route);
+          _handleRouteTap(route!);
         }
       },
     );
@@ -66,29 +71,13 @@ class NotificationService {
     final payload = launchDetails?.notificationResponse?.payload;
     if ((launchDetails?.didNotificationLaunchApp ?? false) && payload != null) {
       final route = _payloadToRoute(payload);
-      if (route == AppRoutes.userNotifications) {
+      if (route == AppRoutes.userNotifications && route != null) {
         _pendingRoute = route;
         await _persistRoute(route);
       } else {
         _pendingChequeId = _payloadToChequeId(payload);
         await _persistPayload(payload);
       }
-    }
-
-    if (kIsWeb) {
-      final webImpl =
-          _plugin.resolvePlatformSpecificImplementation<
-              WebFlutterLocalNotificationsPlugin>();
-      if (webImpl == null) {
-        _webNotificationsSupported = false;
-        debugPrint(
-          'Web notifications are not supported. Consider enabling Firebase Messaging for web.',
-        );
-      } else {
-        final granted = await webImpl.requestPermission();
-        _webNotificationsSupported = granted ?? false;
-      }
-      return;
     }
 
     await _plugin
@@ -232,7 +221,7 @@ class NotificationService {
     required Cheque cheque,
     required String partyName,
   }) async {
-    if (kIsWeb && !_webNotificationsSupported) {
+    if (kIsWeb) {
       return;
     }
     const AndroidNotificationDetails androidDetails =
@@ -272,7 +261,7 @@ class NotificationService {
     required int leadDays,
     int? notificationId,
   }) async {
-    if (kIsWeb && !_webNotificationsSupported) {
+    if (kIsWeb) {
       return null;
     }
     final scheduledDate = DateTime(
@@ -309,13 +298,15 @@ class NotificationService {
 
     final id = notificationId ?? _generateNotificationId(cheque.id);
 
-    await _plugin.schedule(
+    await _plugin.zonedSchedule(
       id,
       'Cheque due soon: $partyName',
       'Cheque of Rs ${cheque.amount.toStringAsFixed(2)} is due on ${cheque.date.toLocal().toString().split(' ').first}.',
-      scheduledDate,
+      tz.TZDateTime.from(scheduledDate, tz.local),
       details,
-      androidAllowWhileIdle: true,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       payload: 'route=${AppRoutes.chequeDetails}&id=${cheque.id}',
     );
 
@@ -330,7 +321,7 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
-    if (kIsWeb && !_webNotificationsSupported) {
+    if (kIsWeb) {
       return;
     }
 
