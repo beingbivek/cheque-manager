@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../controllers/auth_controller.dart';
 import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/cheque.dart';
@@ -119,6 +120,7 @@ class _ChequeListViewState extends State<ChequeListView> {
         body: Column(
           children: [
             const UpgradeBanner(),
+            _UsageSummary(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Card(
@@ -226,6 +228,42 @@ class _ChequeListViewState extends State<ChequeListView> {
             );
           },
           child: const Icon(Icons.add),
+        ),
+      ),
+    );
+  }
+}
+
+class _UsageSummary extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthController>().currentUser;
+    if (user == null) return const SizedBox.shrink();
+    final maxParties = user.isPro ? 50 : 5;
+    final maxCheques = user.isPro ? 50 : 5;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Plan: ${user.isPro ? 'Pro' : 'Free'}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                'Parties: ${user.partyCount}/$maxParties',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                'Cheques: ${user.chequeCount}/$maxCheques',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
         ),
       ),
     );

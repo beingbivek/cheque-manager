@@ -59,6 +59,8 @@ class _UserSettingsViewState extends State<UserSettingsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _PlanSummary(),
+            const SizedBox(height: 12),
             if (_error != null)
               Card(
                 color: Colors.red.shade50,
@@ -120,6 +122,39 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                 onPressed: () => Navigator.pushNamed(context, '/terms-privacy'),
                 child: const Text('View Terms & Privacy'),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanSummary extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthController>().currentUser;
+    if (user == null) return const SizedBox.shrink();
+    final maxParties = user.isPro ? 50 : 5;
+    final maxCheques = user.isPro ? 50 : 5;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            Text(
+              'Plan: ${user.isPro ? 'Pro' : 'Free'}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text(
+              'Parties: ${user.partyCount}/$maxParties',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text(
+              'Cheques: ${user.chequeCount}/$maxCheques',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
           ],
         ),

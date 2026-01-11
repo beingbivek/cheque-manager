@@ -273,6 +273,17 @@ class ChequeController extends ChangeNotifier {
     _setLoading(true);
     try {
       _lastError = null;
+      final userProfile = await _userService.fetchUser(_user!.uid);
+      final maxParties = userProfile.isPro ? 50 : 5;
+
+      if (userProfile.partyCount >= maxParties) {
+        throw AppError(
+          code: 'LIMIT_PARTY',
+          message:
+              'You reached the maximum parties (${maxParties}). Upgrade to Pro to add more.',
+        );
+      }
+
       final existing = await _partyService.findByName(
         userId: _user!.uid,
         name: name,
