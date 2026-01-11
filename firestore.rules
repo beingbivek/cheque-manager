@@ -25,6 +25,10 @@ service cloud.firestore {
       return hasUserProfile() && userData().tier == 'pro';
     }
 
+    function isAdmin() {
+      return isSignedIn() && hasUserProfile() && userData().role == 'admin';
+    }
+
     function maxParties() {
       return isPro() ? 50 : 5;
     }
@@ -34,8 +38,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAdmin() || (isOwner(userId)
         && request.resource.data.keys().hasAll([
           'email',
           'role',
@@ -45,13 +49,14 @@ service cloud.firestore {
           'chequeCount',
           'createdAt',
           'updatedAt'
-        ]);
-      allow update: if isOwner(userId)
+        ]));
+      allow update: if isAdmin() || (isOwner(userId)
         && request.resource.data.role == resource.data.role
         && request.resource.data.tier in ['free', 'pro']
         && request.resource.data.status in ['active', 'suspended']
         && request.resource.data.partyCount >= resource.data.partyCount
-        && request.resource.data.chequeCount >= resource.data.chequeCount;
+        && request.resource.data.chequeCount >= resource.data.chequeCount);
+      allow delete: if isAdmin();
     }
 
     match /parties/{partyId} {
@@ -112,8 +117,37 @@ service cloud.firestore {
     }
 
     match /payments/{paymentId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create, update, delete: if false;
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.keys().hasAll([
+          'userId',
+          'title',
+          'message',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]);
+      allow update, delete: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    match /admin_notifications/{notificationId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /legal_docs/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
     }
   }
 }
