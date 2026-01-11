@@ -71,7 +71,7 @@ class NotificationService {
     final payload = launchDetails?.notificationResponse?.payload;
     if ((launchDetails?.didNotificationLaunchApp ?? false) && payload != null) {
       final route = _payloadToRoute(payload);
-      if (route == AppRoutes.userNotifications) {
+      if (route == AppRoutes.userNotifications && route != null) {
         _pendingRoute = route;
         await _persistRoute(route);
       } else {
@@ -304,7 +304,7 @@ class NotificationService {
       'Cheque of Rs ${cheque.amount.toStringAsFixed(2)} is due on ${cheque.date.toLocal().toString().split(' ').first}.',
       tz.TZDateTime.from(scheduledDate, tz.local),
       details,
-      androidAllowWhileIdle: true,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       payload: 'route=${AppRoutes.chequeDetails}&id=${cheque.id}',
