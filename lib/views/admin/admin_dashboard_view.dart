@@ -779,6 +779,28 @@ class _NotificationsTab extends StatelessWidget {
 class _NotificationsTab extends StatelessWidget {
   const _NotificationsTab();
 
+  void _exportCsv(BuildContext context, List<AdminNotification> notifications) {
+    if (notifications.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No notifications to export.')),
+      );
+      return;
+    }
+    final buffer = StringBuffer()..writeln('title,message,createdAt');
+    for (final notification in notifications) {
+      final createdAt = notification.createdAt == null
+          ? ''
+          : _formatDate(notification.createdAt!);
+      buffer.writeln(
+        '${notification.title},${notification.message},$createdAt',
+      );
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Notifications copied as CSV.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.read<AdminController>();
@@ -808,6 +830,23 @@ class _NotificationsTab extends StatelessWidget {
                   icon: const Icon(Icons.add),
                   label: const Text('New Notification'),
                 ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  Text(
+                    'Total: ${notifications.length}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: () => _exportCsv(context, notifications),
+                    icon: const Icon(Icons.download),
+                    label: const Text('Export CSV'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),

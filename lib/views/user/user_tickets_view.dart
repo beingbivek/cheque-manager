@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/auth_controller.dart';
@@ -20,6 +21,7 @@ class _UserTicketsViewState extends State<UserTicketsView> {
   final _formKey = GlobalKey<FormState>();
   AppError? _error;
   bool _submitting = false;
+  TicketStatus? _statusFilter;
 
   @override
   void dispose() {
@@ -124,21 +126,11 @@ class _UserTicketsViewState extends State<UserTicketsView> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final tickets = snapshot.data!;
-                if (tickets.isEmpty) {
-                  return const Center(child: Text('No tickets yet.'));
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: tickets.length,
-                  separatorBuilder: (_, __) => const Divider(),
-                  itemBuilder: (context, index) {
-                    final ticket = tickets[index];
-                    return ListTile(
-                      title: Text(ticket.title),
-                      subtitle: Text(ticket.message),
-                      trailing: Text(ticket.status.name),
-                    );
-                  },
+                return _TicketList(
+                  tickets: tickets,
+                  statusFilter: _statusFilter,
+                  onFilterChanged: (value) =>
+                      setState(() => _statusFilter = value),
                 );
               },
             ),
@@ -146,6 +138,140 @@ class _UserTicketsViewState extends State<UserTicketsView> {
         ],
       ),
     );
+  }
+}
+
+class _TicketList extends StatelessWidget {
+  const _TicketList({
+    required this.tickets,
+    required this.statusFilter,
+    required this.onFilterChanged,
+  });
+
+  final List<Ticket> tickets;
+  final TicketStatus? statusFilter;
+  final ValueChanged<TicketStatus?> onFilterChanged;
+
+  void _exportCsv(BuildContext context, List<Ticket> entries) {
+    if (entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No tickets to export.')),
+      );
+      return;
+    }
+    final buffer = StringBuffer()..writeln('title,status,createdAt');
+    for (final ticket in entries) {
+      final createdAt = ticket.createdAt == null
+          ? ''
+          : ticket.createdAt!.toLocal().toString().split(' ').first;
+      buffer.writeln('${ticket.title},${ticket.status.name},$createdAt');
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tickets copied as CSV.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = tickets
+        .where((ticket) => statusFilter == null || ticket.status == statusFilter)
+        .toList();
+    if (tickets.isEmpty) {
+      return const Center(child: Text('No tickets yet.'));
+    }
+    final openCount = tickets.where((t) => t.status == TicketStatus.open).length;
+    final progressCount =
+        tickets.where((t) => t.status == TicketStatus.inProgress).length;
+    final resolvedCount =
+        tickets.where((t) => t.status == TicketStatus.resolved).length;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<TicketStatus?>(
+                      value: statusFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'Status filter',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('All statuses')),
+                        DropdownMenuItem(
+                          value: TicketStatus.open,
+                          child: Text('Open'),
+                        ),
+                        DropdownMenuItem(
+                          value: TicketStatus.inProgress,
+                          child: Text('In Progress'),
+                        ),
+                        DropdownMenuItem(
+                          value: TicketStatus.resolved,
+                          child: Text('Resolved'),
+                        ),
+                      ],
+                      onChanged: onFilterChanged,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => _exportCsv(context, filtered),
+                    icon: const Icon(Icons.download),
+                    label: const Text('Export CSV'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _SummaryChip(label: 'Open', count: openCount),
+                  _SummaryChip(label: 'In Progress', count: progressCount),
+                  _SummaryChip(label: 'Resolved', count: resolvedCount),
+                  _SummaryChip(label: 'Filtered', count: filtered.length),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(child: Text('No tickets match filters.'))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final ticket = filtered[index];
+                    return ListTile(
+                      title: Text(ticket.title),
+                      subtitle: Text(ticket.message),
+                      trailing: Text(ticket.status.name),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(label: Text('$label: $count'));
   }
 }
 
