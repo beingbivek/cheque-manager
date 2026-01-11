@@ -24,12 +24,17 @@ class TermsPrivacyView extends StatelessWidget {
           if (docs.isEmpty) {
             return const Center(child: Text('No published documents yet.'));
           }
+          final latestByType = <String, LegalDoc>{};
+          for (final doc in docs) {
+            latestByType.putIfAbsent(doc.docType, () => doc);
+          }
+          final latestDocs = latestByType.values.toList();
           return ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
+            itemCount: latestDocs.length,
             separatorBuilder: (_, __) => const Divider(),
             itemBuilder: (context, index) {
-              final doc = docs[index];
+              final doc = latestDocs[index];
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -42,6 +47,11 @@ class TermsPrivacyView extends StatelessWidget {
                     'Version ${doc.version} · Published ${_formatDate(doc.publishedAt)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (doc.updatedAt != null)
+                    Text(
+                      'Last updated ${_formatDate(doc.updatedAt)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   const SizedBox(height: 8),
                   Text(doc.content),
                 ],

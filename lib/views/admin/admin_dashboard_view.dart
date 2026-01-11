@@ -598,155 +598,175 @@ class _PaymentsTabState extends State<_PaymentsTab> {
           return const _EmptyState(message: 'No payments recorded yet.');
         }
 
-        final providers = {
-          'All',
-          ...payments.map((payment) => payment.provider).where((p) => p.isNotEmpty),
-        }.toList();
-        final plans = {
-          'All',
-          ...payments.map((payment) => payment.planGranted).where((p) => p.isNotEmpty),
-        }.toList();
+        return StreamBuilder<List<User>>(
+          stream: widget.controller.streamUsers(),
+          builder: (context, usersSnapshot) {
+            final users = usersSnapshot.data ?? [];
+            final proCount = users.where((u) => u.tier == UserTier.pro).length;
+            final freeCount = users.where((u) => u.tier == UserTier.free).length;
 
-        final providerValue =
-            providers.contains(_providerFilter) ? _providerFilter : 'All';
-        final planValue = plans.contains(_planFilter) ? _planFilter : 'All';
-        if (providerValue != _providerFilter) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _providerFilter = providerValue);
-          });
-        }
-        if (planValue != _planFilter) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _planFilter = planValue);
-          });
-        }
+            final providers = {
+              'All',
+              ...payments
+                  .map((payment) => payment.provider)
+                  .where((p) => p.isNotEmpty),
+            }.toList();
+            final plans = {
+              'All',
+              ...payments
+                  .map((payment) => payment.planGranted)
+                  .where((p) => p.isNotEmpty),
+            }.toList();
 
-        final filtered = _applyFilters(
-          payments,
-          providerFilter: providerValue,
-          planFilter: planValue,
-        );
-        final totalAmount = filtered.fold<double>(
-          0,
-          (sum, payment) => sum + payment.amountValue,
-        );
+            final providerValue =
+                providers.contains(_providerFilter) ? _providerFilter : 'All';
+            final planValue = plans.contains(_planFilter) ? _planFilter : 'All';
+            if (providerValue != _providerFilter) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _providerFilter = providerValue);
+              });
+            }
+            if (planValue != _planFilter) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _planFilter = planValue);
+              });
+            }
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+            final filtered = _applyFilters(
+              payments,
+              providerFilter: providerValue,
+              planFilter: planValue,
+            );
+            final totalAmount = filtered.fold<double>(
+              0,
+              (sum, payment) => sum + payment.amountValue,
+            );
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: _pickStartDate,
-                        icon: const Icon(Icons.date_range),
-                        label: Text(
-                          _startDate == null
-                              ? 'Start date'
-                              : _formatDate(_startDate!),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _pickEndDate,
-                        icon: const Icon(Icons.event),
-                        label: Text(
-                          _endDate == null ? 'End date' : _formatDate(_endDate!),
-                        ),
-                      ),
-                      DropdownButton<String>(
-                        value: providerValue,
-                        items: providers
-                            .map((provider) => DropdownMenuItem(
-                                  value: provider,
-                                  child: Text('Provider: $provider'),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _providerFilter = value);
-                        },
-                      ),
-                      DropdownButton<String>(
-                        value: planValue,
-                        items: plans
-                            .map((plan) => DropdownMenuItem(
-                                  value: plan,
-                                  child: Text('Plan: $plan'),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _planFilter = value);
-                        },
-                      ),
-                      TextButton(
-                        onPressed: _clearFilters,
-                        child: const Text('Clear filters'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
                         children: [
-                          Expanded(
-                            child: Text(
-                              'Total payments: ${filtered.length}',
-                              style: Theme.of(context).textTheme.titleMedium,
+                          OutlinedButton.icon(
+                            onPressed: _pickStartDate,
+                            icon: const Icon(Icons.date_range),
+                            label: Text(
+                              _startDate == null
+                                  ? 'Start date'
+                                  : _formatDate(_startDate!),
                             ),
                           ),
-                          Text(
-                            'Total Rs ${totalAmount.toStringAsFixed(2)}',
-                            style: Theme.of(context).textTheme.titleMedium,
+                          OutlinedButton.icon(
+                            onPressed: _pickEndDate,
+                            icon: const Icon(Icons.event),
+                            label: Text(
+                              _endDate == null ? 'End date' : _formatDate(_endDate!),
+                            ),
                           ),
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: filtered.isEmpty
-                                ? null
-                                : () => _exportCsv(filtered),
-                            icon: const Icon(Icons.download),
-                            label: const Text('Export CSV'),
+                          DropdownButton<String>(
+                            value: providerValue,
+                            items: providers
+                                .map((provider) => DropdownMenuItem(
+                                      value: provider,
+                                      child: Text('Provider: $provider'),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() => _providerFilter = value);
+                            },
+                          ),
+                          DropdownButton<String>(
+                            value: planValue,
+                            items: plans
+                                .map((plan) => DropdownMenuItem(
+                                      value: plan,
+                                      child: Text('Plan: $plan'),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() => _planFilter = value);
+                            },
+                          ),
+                          TextButton(
+                            onPressed: _clearFilters,
+                            child: const Text('Clear filters'),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              Text(
+                                'Payments: ${filtered.length}',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                'Total Rs ${totalAmount.toStringAsFixed(2)}',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                'Pro users: $proCount',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                'Free users: $freeCount',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: filtered.isEmpty
+                                    ? null
+                                    : () => _exportCsv(filtered),
+                                icon: const Icon(Icons.download),
+                                label: const Text('Export CSV'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: filtered.isEmpty
-                  ? const _EmptyState(message: 'No payments match filters.')
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const Divider(),
-                      itemBuilder: (context, index) {
-                        final payment = filtered[index];
-                        return ListTile(
-                          title: Text(
-                            'Rs ${payment.amountValue.toStringAsFixed(2)} · ${payment.provider}',
-                          ),
-                          subtitle: Text(
-                            'User: ${payment.userId}\nPlan: ${payment.planGranted}',
-                          ),
-                          trailing: Text(
-                            payment.createdAt == null
-                                ? 'Unknown'
-                                : _formatDate(payment.createdAt!),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+                ),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? const _EmptyState(message: 'No payments match filters.')
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final payment = filtered[index];
+                            return ListTile(
+                              title: Text(
+                                'Rs ${payment.amountValue.toStringAsFixed(2)} · ${payment.provider}',
+                              ),
+                              subtitle: Text(
+                                'User: ${payment.userId}\nPlan: ${payment.planGranted}',
+                              ),
+                              trailing: Text(
+                                payment.createdAt == null
+                                    ? 'Unknown'
+                                    : _formatDate(payment.createdAt!),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
         );
       },
     );

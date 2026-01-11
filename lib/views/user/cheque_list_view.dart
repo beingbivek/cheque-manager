@@ -119,6 +119,41 @@ class _ChequeListViewState extends State<ChequeListView> {
         body: Column(
           children: [
             const UpgradeBanner(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _QuickAction(
+                        label: 'Settings',
+                        icon: Icons.settings,
+                        onTap: () => Navigator.pushNamed(context, '/settings'),
+                      ),
+                      _QuickAction(
+                        label: 'Notifications',
+                        icon: Icons.notifications,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/notifications'),
+                      ),
+                      _QuickAction(
+                        label: 'Tickets',
+                        icon: Icons.support_agent,
+                        onTap: () => Navigator.pushNamed(context, '/tickets'),
+                      ),
+                      _QuickAction(
+                        label: 'Parties',
+                        icon: Icons.groups,
+                        onTap: () => Navigator.pushNamed(context, '/parties'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             if (controller.lastError != null)
               _ErrorBanner(error: controller.lastError!),
             Padding(
@@ -259,6 +294,30 @@ class _SummaryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(
       label: Text('$label: $count'),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuickAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon),
+        label: Text(label),
+      ),
     );
   }
 }

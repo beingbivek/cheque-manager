@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/user.dart';
@@ -19,13 +21,16 @@ class ChequeController extends ChangeNotifier {
   List<Party> _parties = [];
   AppError? _lastError;
   bool _isLoading = false;
+  Timer? _refreshTimer;
 
   void setUser(User? user) {
     _user = user;
     if (user != null) {
       _nearThresholdDays = user.notificationLeadDays;
+      _startAutoRefresh();
       loadData();
     } else {
+      _stopAutoRefresh();
       _cheques = [];
       _parties = [];
       _lastError = null;
@@ -420,6 +425,23 @@ class ChequeController extends ChangeNotifier {
     }
   }
 
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      const Duration(hours: 6),
+      (_) {
+        if (_user != null) {
+          refreshStatuses();
+        }
+      },
+    );
+  }
+
+  void _stopAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
   Future<void> markAsCashed(String chequeId) async {
     await updateChequeStatus(
       chequeId: chequeId,
@@ -603,5 +625,11 @@ class ChequeController extends ChangeNotifier {
   void clearError() {
     _lastError = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _stopAutoRefresh();
+    super.dispose();
   }
 }

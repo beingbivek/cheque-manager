@@ -13,6 +13,7 @@ class LegalDocService {
   Stream<List<LegalDoc>> streamPublishedDocs() {
     return _repository.legalDocs
         .where('publishedAt', isNull: false)
+        .orderBy('publishedAt', descending: true)
         .snapshots()
         .map((snapshot) =>
             snapshot.docs.map((doc) => LegalDoc.fromMap(doc.id, doc.data())).toList())
