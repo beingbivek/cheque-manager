@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/admin_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/legal_doc.dart';
+import '../common/app_error_banner.dart';
 
 class EditLegalDocDialog extends StatefulWidget {
   const EditLegalDocDialog({super.key, required this.doc});
@@ -71,6 +72,37 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.doc.id.isEmpty) {
+      final error = AppError(
+        code: 'LEGAL_DOC_ID_MISSING',
+        message: 'Missing legal document ID.',
+      );
+      return AlertDialog(
+        title: const Text('Legal document unavailable'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'We could not load this legal document. Please try again.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            AppErrorBanner(error: error),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context)
+                .pushNamedAndRemoveUntil('/', (route) => false),
+            child: const Text('Go Home'),
+          ),
+        ],
+      );
+    }
     return AlertDialog(
       title: Text('Edit ${widget.doc.docType}'),
       content: Form(

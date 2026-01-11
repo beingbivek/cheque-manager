@@ -7,6 +7,7 @@ import '../../controllers/admin_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/ticket.dart';
 import '../../utils/export_helper.dart';
+import '../common/app_error_banner.dart';
 
 class TicketsTab extends StatefulWidget {
   const TicketsTab({super.key});
@@ -275,6 +276,20 @@ class _TicketTile extends StatelessWidget {
       'Priority: ${ticket.priority}',
       'Category: ${ticket.category}',
     ].join(' · ');
+
+    if (ticket.id.isEmpty) {
+      final error = AppError(
+        code: 'TICKET_ID_MISSING',
+        message: 'Ticket ID is missing.',
+      );
+      return Card(
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: AppErrorBanner(error: error),
+        ),
+      );
+    }
 
     return ListTile(
       title: Text(ticket.subject),

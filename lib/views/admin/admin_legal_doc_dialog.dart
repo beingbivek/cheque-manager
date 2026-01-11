@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/admin_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/legal_doc.dart';
+import '../common/app_error_banner.dart';
 
 class AdminLegalDocDialog extends StatefulWidget {
   const AdminLegalDocDialog({super.key, required this.doc});
@@ -74,6 +75,37 @@ class _AdminLegalDocDialogState extends State<AdminLegalDocDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.doc.id.isEmpty) {
+      final error = AppError(
+        code: 'LEGAL_DOC_ID_MISSING',
+        message: 'Missing legal document ID.',
+      );
+      return AlertDialog(
+        title: const Text('Legal document unavailable'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'We could not load this legal document. Please try again.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            AppErrorBanner(error: error),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context)
+                .pushNamedAndRemoveUntil('/', (route) => false),
+            child: const Text('Go Home'),
+          ),
+        ],
+      );
+    }
     return AlertDialog(
       title: Text('Edit ${widget.doc.docType.toUpperCase()}'),
       content: SizedBox(
@@ -84,7 +116,10 @@ class _AdminLegalDocDialogState extends State<AdminLegalDocDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_error != null)
-                _ErrorBanner(error: _error!),
+                AppErrorBanner(
+                  error: _error!,
+                  margin: const EdgeInsets.only(bottom: 12),
+                ),
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(labelText: 'Title'),
@@ -143,36 +178,6 @@ class _AdminLegalDocDialogState extends State<AdminLegalDocDialog> {
               : const Text('Save'),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.error});
-
-  final AppError error;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: Colors.red),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${error.message}\nCode: ${error.code}',
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
