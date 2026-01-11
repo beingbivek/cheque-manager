@@ -111,8 +111,8 @@ class _LoginViewState extends State<LoginView> {
 }
 
 void _openPendingChequeDetail() {
-  Future.delayed(const Duration(milliseconds: 300), () {
-    final chequeId = NotificationService.instance.consumePendingChequeId();
+  Future.delayed(const Duration(milliseconds: 300), () async {
+    final chequeId = await NotificationService.instance.consumePendingChequeId();
     if (chequeId == null) return;
     final navState = NavigationService.navigatorKey.currentState;
     navState?.pushNamed(

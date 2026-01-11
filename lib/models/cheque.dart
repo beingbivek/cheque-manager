@@ -15,6 +15,7 @@ class Cheque {
   final ChequeStatus status;
   final ChequeSettlementStatus settlementStatus;
   final bool notificationSent;
+  final int? notificationId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -29,6 +30,7 @@ class Cheque {
     required this.status,
     this.settlementStatus = ChequeSettlementStatus.pending,
     this.notificationSent = false,
+    this.notificationId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -44,6 +46,7 @@ class Cheque {
     ChequeStatus? status,
     ChequeSettlementStatus? settlementStatus,
     bool? notificationSent,
+    int? notificationId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -58,6 +61,7 @@ class Cheque {
       status: status ?? this.status,
       settlementStatus: settlementStatus ?? this.settlementStatus,
       notificationSent: notificationSent ?? this.notificationSent,
+      notificationId: notificationId ?? this.notificationId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -81,6 +85,7 @@ class Cheque {
       settlementStatus:
           _settlementStatusFromString(data['settlementStatus'] as String? ?? 'pending'),
       notificationSent: data['notificationSent'] as bool? ?? false,
+      notificationId: (data['notificationId'] as num?)?.toInt(),
       createdAt: createdAt,
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? createdAt,
     );
@@ -97,6 +102,7 @@ class Cheque {
       'status': status.name,
       'settlementStatus': settlementStatus.name,
       'notificationSent': notificationSent,
+      'notificationId': notificationId,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
