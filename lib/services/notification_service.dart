@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,7 +11,7 @@ class NotificationService {
   static final NotificationService instance = NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _plugin =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
   static const String _channelId = 'cheque_reminders';
   static const String _channelName = 'Cheque Reminders';
@@ -22,108 +21,12 @@ class NotificationService {
 
   String? _pendingChequeId;
 
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
-  String? _pendingChequeId;
-
-  String? consumePendingChequeId() {
-    final pending = _pendingChequeId;
-    _pendingChequeId = null;
-    return pending;
-  }
-
   Future<void> init() async {
-    // Android init
     const AndroidInitializationSettings androidInit =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // (You can add iOS/web here later if needed)
     const InitializationSettings initSettings =
-    InitializationSettings(android: androidInit);
+        InitializationSettings(android: androidInit);
 
     await _plugin.initialize(
       initSettings,
@@ -143,19 +46,12 @@ class NotificationService {
     );
 
     final launchDetails = await _plugin.getNotificationAppLaunchDetails();
-    if (launchDetails?.didNotificationLaunchApp ?? false) {
-      final payload = launchDetails?.notificationResponse?.payload;
-      if (payload != null) {
-        final parts = Uri.splitQueryString(payload);
-        final route = parts['route'];
-        final id = parts['id'];
-        if (route == AppRoutes.chequeDetails && id != null) {
-          _pendingChequeId = id;
-        }
-      }
+    final payload = launchDetails?.notificationResponse?.payload;
+    if ((launchDetails?.didNotificationLaunchApp ?? false) && payload != null) {
+      _pendingChequeId = _payloadToChequeId(payload);
+      await _persistPayload(payload);
     }
 
-    // Android channel
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       _channelId,
       _channelName,
@@ -164,18 +60,10 @@ class NotificationService {
     );
 
     final androidImpl =
-    _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+        _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
 
     await androidImpl?.createNotificationChannel(channel);
-
-    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
-    if (launchDetails?.didNotificationLaunchApp ?? false) {
-      final payload = launchDetails?.notificationResponse?.payload;
-      if (payload != null) {
-        await _persistPayload(payload);
-      }
-    }
   }
 
   Future<void> _handleNotificationTap(String chequeId) async {
@@ -185,7 +73,6 @@ class NotificationService {
       return;
     }
 
-    // Ensure we're on user dashboard, then push cheque detail
     navState.pushNamedAndRemoveUntil(
       AppRoutes.userDashboard,
       (route) => route.isFirst,
@@ -200,11 +87,17 @@ class NotificationService {
   }
 
   Future<String?> peekPendingChequeId() async {
+    if (_pendingChequeId != null) return _pendingChequeId;
     final payload = await _loadPayload();
     return _payloadToChequeId(payload);
   }
 
   Future<String?> consumePendingChequeId() async {
+    if (_pendingChequeId != null) {
+      final pending = _pendingChequeId;
+      _pendingChequeId = null;
+      return pending;
+    }
     final payload = await _loadPayload();
     if (payload == null) return null;
     await clearPendingPayload();
@@ -244,7 +137,7 @@ class NotificationService {
     required String partyName,
   }) async {
     const AndroidNotificationDetails androidDetails =
-    AndroidNotificationDetails(
+        AndroidNotificationDetails(
       _channelId,
       _channelName,
       channelDescription: _channelDescription,
@@ -253,14 +146,65 @@ class NotificationService {
     );
 
     const NotificationDetails details =
-    NotificationDetails(android: androidDetails);
+        NotificationDetails(android: androidDetails);
 
     await _plugin.show(
-      cheque.hashCode, // id (any int)
+      cheque.hashCode,
       'Cheque due soon: $partyName',
       'Cheque of Rs ${cheque.amount.toStringAsFixed(2)} is near ${cheque.date.toLocal().toString().split(' ').first}.',
       details,
       payload: 'route=${AppRoutes.chequeDetails}&id=${cheque.id}',
     );
+  }
+
+  Future<int?> scheduleChequeReminder({
+    required Cheque cheque,
+    required String partyName,
+    required int leadDays,
+    int? notificationId,
+  }) async {
+    final scheduledDate = DateTime(
+      cheque.date.year,
+      cheque.date.month,
+      cheque.date.day,
+    ).subtract(Duration(days: leadDays));
+
+    if (!scheduledDate.isAfter(DateTime.now())) {
+      return null;
+    }
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      priority: Priority.high,
+      importance: Importance.high,
+    );
+
+    const NotificationDetails details =
+        NotificationDetails(android: androidDetails);
+
+    final id = notificationId ?? _generateNotificationId(cheque.id);
+
+    await _plugin.schedule(
+      id,
+      'Cheque due soon: $partyName',
+      'Cheque of Rs ${cheque.amount.toStringAsFixed(2)} is due on ${cheque.date.toLocal().toString().split(' ').first}.',
+      scheduledDate,
+      details,
+      androidAllowWhileIdle: true,
+      payload: 'route=${AppRoutes.chequeDetails}&id=${cheque.id}',
+    );
+
+    return id;
+  }
+
+  Future<void> cancelScheduledNotification(int notificationId) async {
+    await _plugin.cancel(notificationId);
+  }
+
+  int _generateNotificationId(String chequeId) {
+    return chequeId.hashCode & 0x7fffffff;
   }
 }

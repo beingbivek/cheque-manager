@@ -81,6 +81,24 @@ class ChequeController extends ChangeNotifier {
     return 'Unknown';
   }
 
+  Future<void> loadData() async {
+    if (_user == null) return;
+    _setLoading(true);
+    try {
+      _lastError = null;
+      _nearThresholdDays = _user?.notificationLeadDays ?? _nearThresholdDays;
+      _parties = await _partyService.getPartiesForUser(_user!.uid);
+      _cheques = await _chequeService.getChequesForUser(_user!.uid);
+
+      // auto adjust statuses based on current date
+      await refreshStatuses();
+    } on AppError catch (e) {
+      _lastError = e;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> updateNotificationLeadDays(int days) async {
     if (_user == null) {
       _lastError = AppError(
@@ -105,69 +123,41 @@ class ChequeController extends ChangeNotifier {
       _lastError = null;
       await _userService.updateNotificationLeadDays(
         userId: _user!.uid,
-        days: days,
-      );
-
-      _user = _user!.copyWith(notificationLeadDays: days);
-
-      await _chequeService.resetNotificationsForUser(_user!.uid);
-      _cheques = _cheques
-          .map((c) => c.copyWith(notificationSent: false))
-          .toList();
-      notifyListeners();
-    } on AppError catch (e) {
-      _lastError = e;
-      notifyListeners();
-      return;
-    } finally {
-      _setLoading(false);
-    }
-
-    await refreshStatuses();
-  }
-
-  Future<void> loadData() async {
-    if (_user == null) return;
-    _setLoading(true);
-    try {
-      _lastError = null;
-      _nearThresholdDays = _user?.notificationLeadDays ?? _nearThresholdDays;
-      _parties = await _partyService.getPartiesForUser(_user!.uid);
-      _cheques = await _chequeService.getChequesForUser(_user!.uid);
-
-      // auto adjust statuses based on current date
-      await refreshStatuses();
-    } on AppError catch (e) {
-      _lastError = e;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> updateNotificationLeadDays(int days) async {
-    if (_user == null) return;
-    _setLoading(true);
-    try {
-      _lastError = null;
-      await _userService.updateNotificationLeadDays(
-        userId: _user!.uid,
         leadDays: days,
       );
       _nearThresholdDays = days;
+      _user = _user!.copyWith(notificationLeadDays: days);
 
+      final updatedCheques = <Cheque>[];
       for (final cheque in _cheques) {
-        if (cheque.status == ChequeStatus.cashed) continue;
-        await _chequeService.updateNotificationSent(
+        if (cheque.status == ChequeStatus.cashed) {
+          updatedCheques.add(cheque);
+          continue;
+        }
+
+        final scheduledId = await _scheduleChequeNotification(
+          cheque: cheque,
+          leadDays: days,
+          cancelExisting: true,
+        );
+
+        await _chequeService.updateCheque(
           chequeId: cheque.id,
-          notificationSent: false,
+          updates: {
+            'notificationSent': false,
+            'notificationId': scheduledId,
+          },
+        );
+
+        updatedCheques.add(
+          cheque.copyWith(
+            notificationSent: false,
+            notificationId: scheduledId,
+          ),
         );
       }
 
-      _cheques = _cheques
-          .map((cheque) => cheque.status == ChequeStatus.cashed
-              ? cheque
-              : cheque.copyWith(notificationSent: false))
-          .toList();
+      _cheques = updatedCheques;
 
       await refreshStatuses();
     } on AppError catch (e) {
@@ -241,11 +231,24 @@ class ChequeController extends ChangeNotifier {
         date: date,
         status: status,
         notificationSent: false,
+        notificationId: null,
         createdAt: now,
         updatedAt: now,
       );
 
-      final saved = await _chequeService.addCheque(cheque);
+      var saved = await _chequeService.addCheque(cheque);
+      final scheduledId = await _scheduleChequeNotification(
+        cheque: saved,
+        leadDays: userProfile.notificationLeadDays,
+      );
+      if (scheduledId != null) {
+        await _chequeService.updateCheque(
+          chequeId: saved.id,
+          updates: {'notificationId': scheduledId},
+        );
+        saved = saved.copyWith(notificationId: scheduledId);
+      }
+
       _cheques.add(saved);
       if (!_parties.any((p) => p.id == party.id)) {
         _parties.add(party);
@@ -560,6 +563,37 @@ class ChequeController extends ChangeNotifier {
           'updatedAt': now,
         },
       );
+
+      final leadDays = _user?.notificationLeadDays ?? _nearThresholdDays;
+      final dateChanged = !current.date.isAtSameMomentAs(date);
+      int? scheduledId = updatedCheque.notificationId;
+
+      if (recalculatedStatus == ChequeStatus.cashed) {
+        if (current.notificationId != null) {
+          await NotificationService.instance
+              .cancelScheduledNotification(current.notificationId!);
+        }
+        scheduledId = null;
+      } else if (dateChanged) {
+        scheduledId = await _scheduleChequeNotification(
+          cheque: updatedCheque,
+          leadDays: leadDays,
+          cancelExisting: true,
+        );
+      }
+
+      if (scheduledId != updatedCheque.notificationId) {
+        await _chequeService.updateCheque(
+          chequeId: chequeId,
+          updates: {'notificationId': scheduledId},
+        );
+
+        final refreshed = List<Cheque>.from(_cheques);
+        refreshed[index] = updatedCheque.copyWith(notificationId: scheduledId);
+        _cheques = refreshed;
+        notifyListeners();
+      }
+
       await refreshStatuses();
     } on AppError catch (e) {
       final reverted = List<Cheque>.from(_cheques);
@@ -568,6 +602,32 @@ class ChequeController extends ChangeNotifier {
       _lastError = e;
       notifyListeners();
     }
+  }
+
+  Future<int?> _scheduleChequeNotification({
+    required Cheque cheque,
+    required int leadDays,
+    bool cancelExisting = false,
+  }) async {
+    if (cheque.status == ChequeStatus.cashed) {
+      return null;
+    }
+
+    if (!cancelExisting && cheque.notificationId != null) {
+      return cheque.notificationId;
+    }
+
+    if (cancelExisting && cheque.notificationId != null) {
+      await NotificationService.instance
+          .cancelScheduledNotification(cheque.notificationId!);
+    }
+
+    return NotificationService.instance.scheduleChequeReminder(
+      cheque: cheque,
+      partyName: displayPartyName(cheque),
+      leadDays: leadDays,
+      notificationId: cheque.notificationId,
+    );
   }
 
   // Helper: recalc status based on dates
