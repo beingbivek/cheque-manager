@@ -19,8 +19,10 @@ class NotificationService {
   static const String _channelDescription =
       'Notifications for cheques that are due soon.';
   static const String _pendingPayloadKey = 'pending_notification_payload';
+  static const String _pendingRouteKey = 'pending_notification_route';
 
   String? _pendingChequeId;
+  String? _pendingRoute;
   bool _webNotificationsSupported = true;
 
   Future<void> init() async {
@@ -54,6 +56,8 @@ class NotificationService {
 
         if (route == AppRoutes.chequeDetails && id != null) {
           _handleNotificationTap(id);
+        } else if (route == AppRoutes.userNotifications) {
+          _handleRouteTap(route);
         }
       },
     );
@@ -61,8 +65,14 @@ class NotificationService {
     final launchDetails = await _plugin.getNotificationAppLaunchDetails();
     final payload = launchDetails?.notificationResponse?.payload;
     if ((launchDetails?.didNotificationLaunchApp ?? false) && payload != null) {
-      _pendingChequeId = _payloadToChequeId(payload);
-      await _persistPayload(payload);
+      final route = _payloadToRoute(payload);
+      if (route == AppRoutes.userNotifications) {
+        _pendingRoute = route;
+        await _persistRoute(route);
+      } else {
+        _pendingChequeId = _payloadToChequeId(payload);
+        await _persistPayload(payload);
+      }
     }
 
     if (kIsWeb) {
@@ -147,11 +157,20 @@ class NotificationService {
     await prefs.remove(_pendingPayloadKey);
   }
 
+  Future<void> clearPendingRoute() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pendingRouteKey);
+  }
+
+  Future<void> setPendingRoute(String route) async {
+    _pendingRoute = route;
+    await _persistRoute(route);
+  }
+
   String? _payloadToChequeId(String? payload) {
     if (payload == null || payload.isEmpty) return null;
-    final query = payload.replaceFirst('route=', 'route=/');
-    final parts = Uri.splitQueryString(query);
-    final route = parts['route'];
+    final parts = Uri.splitQueryString(payload);
+    final route = _normalizeRoute(parts['route']);
     final id = parts['id'];
 
     if (route == AppRoutes.chequeDetails && id != null && id.isNotEmpty) {
@@ -160,14 +179,53 @@ class NotificationService {
     return null;
   }
 
+  String? _payloadToRoute(String? payload) {
+    if (payload == null || payload.isEmpty) return null;
+    final parts = Uri.splitQueryString(payload);
+    return _normalizeRoute(parts['route']);
+  }
+
+  String? _normalizeRoute(String? route) {
+    if (route == null || route.isEmpty) return null;
+    return route.startsWith('/') ? route : '/$route';
+  }
+
   Future<void> _persistPayload(String payload) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pendingPayloadKey, payload);
   }
 
+  Future<void> _persistRoute(String route) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingRouteKey, route);
+  }
+
   Future<String?> _loadPayload() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_pendingPayloadKey);
+  }
+
+  Future<String?> _loadRoute() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_pendingRouteKey);
+  }
+
+  Future<String?> peekPendingRoute() async {
+    if (_pendingRoute != null) return _pendingRoute;
+    return _loadRoute();
+  }
+
+  Future<String?> consumePendingRoute() async {
+    if (_pendingRoute != null) {
+      final pending = _pendingRoute;
+      _pendingRoute = null;
+      await clearPendingRoute();
+      return pending;
+    }
+    final route = await _loadRoute();
+    if (route == null) return null;
+    await clearPendingRoute();
+    return route;
   }
 
   Future<void> showChequeReminder({
@@ -268,7 +326,64 @@ class NotificationService {
     await _plugin.cancel(notificationId);
   }
 
+  Future<void> showAdminNotification({
+    required String title,
+    required String body,
+  }) async {
+    if (kIsWeb && !_webNotificationsSupported) {
+      return;
+    }
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      priority: Priority.high,
+      importance: Importance.high,
+    );
+
+    const DarwinNotificationDetails darwinDetails =
+        DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+      iOS: darwinDetails,
+      macOS: darwinDetails,
+    );
+
+    await _plugin.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
+      details,
+      payload: 'route=${AppRoutes.userNotifications}',
+    );
+  }
+
   int _generateNotificationId(String chequeId) {
     return chequeId.hashCode & 0x7fffffff;
+  }
+
+  Future<void> _handleRouteTap(String route) async {
+    final navState = NavigationService.navigatorKey.currentState;
+    if (navState == null) {
+      _pendingRoute = route;
+      await _persistRoute(route);
+      return;
+    }
+
+    navState.pushNamedAndRemoveUntil(
+      AppRoutes.userDashboard,
+      (route) => route.isFirst,
+    );
+
+    navState.pushNamed(route);
+
+    await clearPendingRoute();
   }
 }

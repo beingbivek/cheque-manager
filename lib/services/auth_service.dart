@@ -1,12 +1,13 @@
 // lib/services/auth_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/user.dart';
 import '../models/app_error.dart';
 import 'firestore_repository.dart';
+import 'fcm_service.dart';
 
 class AuthService {
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
@@ -64,7 +65,9 @@ class AuthService {
         password: password,
       );
       final user = credential.user!;
-      return await createOrGetUser(user);
+      final savedUser = await createOrGetUser(user);
+      await _storeFcmToken(user.uid);
+      return savedUser;
     } on firebase_auth.FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_REG_${e.code.toUpperCase()}',
@@ -87,7 +90,9 @@ class AuthService {
         password: password,
       );
       final user = credential.user!;
-      return await createOrGetUser(user);
+      final savedUser = await createOrGetUser(user);
+      await _storeFcmToken(user.uid);
+      return savedUser;
     } on firebase_auth.FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_LOGIN_${e.code.toUpperCase()}',
@@ -116,7 +121,9 @@ class AuthService {
             message: 'Google sign-in failed to return a user.',
           );
         }
-        return await createOrGetUser(user);
+        final savedUser = await createOrGetUser(user);
+        await _storeFcmToken(user.uid);
+        return savedUser;
       }
 
       // Native (Android/iOS) flow
@@ -137,7 +144,9 @@ class AuthService {
 
       final result = await _auth.signInWithCredential(credential);
       final user = result.user!;
-      return await createOrGetUser(user);
+      final savedUser = await createOrGetUser(user);
+      await _storeFcmToken(user.uid);
+      return savedUser;
     } on firebase_auth.FirebaseAuthException catch (e) {
       throw AppError(
         code: 'AUTH_GOOGLE_${e.code.toUpperCase()}',
@@ -156,5 +165,13 @@ class AuthService {
   Future<void> logout() async {
     await _auth.signOut();
     await GoogleSignIn().signOut();
+  }
+
+  Future<void> _storeFcmToken(String uid) async {
+    try {
+      await FcmService.instance.registerTokenForUser(uid);
+    } catch (e) {
+      debugPrint('Failed to store FCM token: $e');
+    }
   }
 }

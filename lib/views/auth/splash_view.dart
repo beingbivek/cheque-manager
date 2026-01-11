@@ -30,13 +30,25 @@ class _SplashViewState extends State<SplashView> {
     if (!mounted) return;
 
     final pendingChequeId = await notificationService.peekPendingChequeId();
+    final pendingRoute = await notificationService.peekPendingRoute();
 
     if (auth.isLoggedIn) {
       final user = auth.currentUser!;
       if (user.role == 'admin') {
         await notificationService.clearPendingPayload();
+        await notificationService.clearPendingRoute();
         Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
       } else {
+        if (pendingRoute == AppRoutes.userNotifications) {
+          await notificationService.consumePendingRoute();
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.userDashboard,
+            (route) => false,
+          );
+          Navigator.pushNamed(context, AppRoutes.userNotifications);
+          return;
+        }
         if (pendingChequeId != null) {
           final chequeId = await notificationService.consumePendingChequeId();
           if (chequeId != null) {
@@ -54,23 +66,30 @@ class _SplashViewState extends State<SplashView> {
           }
         }
         Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
-        _openPendingChequeDetail();
+        _openPendingNotificationRoute();
       }
     } else {
       Navigator.pushReplacementNamed(context, AppRoutes.login);
     }
   }
 
-  void _openPendingChequeDetail() {
+  void _openPendingNotificationRoute() {
     Future.delayed(const Duration(milliseconds: 300), () async {
-      final chequeId =
-          await NotificationService.instance.consumePendingChequeId();
-      if (chequeId == null) return;
-      final navState = NavigationService.navigatorKey.currentState;
-      navState?.pushNamed(
-        AppRoutes.chequeDetails,
-        arguments: chequeId,
-      );
+      final notificationService = NotificationService.instance;
+      final pendingRoute = await notificationService.consumePendingRoute();
+      if (pendingRoute != null) {
+        final navState = NavigationService.navigatorKey.currentState;
+        navState?.pushNamed(pendingRoute);
+        return;
+      }
+      final chequeId = await notificationService.consumePendingChequeId();
+      if (chequeId != null) {
+        final navState = NavigationService.navigatorKey.currentState;
+        navState?.pushNamed(
+          AppRoutes.chequeDetails,
+          arguments: chequeId,
+        );
+      }
     });
   }
 
