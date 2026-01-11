@@ -86,6 +86,47 @@ class AdminService {
         });
   }
 
+  Future<List<PaymentRecord>> fetchFilteredPayments({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? provider,
+    String? plan,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _repository.payments;
+
+      if (startDate != null) {
+        query = query.where('createdAt', isGreaterThanOrEqualTo: startDate);
+      }
+      if (endDate != null) {
+        query = query.where('createdAt', isLessThanOrEqualTo: endDate);
+      }
+      if (provider != null && provider.isNotEmpty) {
+        query = query.where('provider', isEqualTo: provider);
+      }
+      if (plan != null && plan.isNotEmpty) {
+        query = query.where('planGranted', isEqualTo: plan);
+      }
+
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) => PaymentRecord.fromMap(doc.id, doc.data()))
+          .toList();
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to load payments.',
+        original: e,
+      );
+    } catch (e) {
+      throw AppError(
+        code: 'ADMIN_PAYMENTS_LOAD',
+        message: 'Unknown error while loading payments.',
+        original: e,
+      );
+    }
+  }
+
   Future<void> createNotification({
     required String title,
     required String message,

@@ -52,6 +52,7 @@ dependencies:
   # Notifications
   firebase_messaging: ^15.1.0   # push notifications:contentReference[oaicite:1]{index=1}
   flutter_local_notifications: ^18.0.1  # local scheduling if needed:contentReference[oaicite:2]{index=2}
+  timezone: ^0.9.2
 
   # Khalti payment
   khalti_flutter: ^3.0.0        # official plugin:contentReference[oaicite:3]{index=3}

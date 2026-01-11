@@ -66,7 +66,8 @@ class _ChequeDetailViewState extends State<ChequeDetailView> {
       );
     }
 
-    final partyName = controller.displayPartyName(cheque);
+    final chequeValue = cheque;
+    final partyName = controller.displayPartyName(chequeValue);
 
     return Scaffold(
       appBar: AppBar(
@@ -74,13 +75,13 @@ class _ChequeDetailViewState extends State<ChequeDetailView> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: cheque.id.isEmpty
+            onPressed: chequeValue.id.isEmpty
                 ? null
                 : () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ChequeEditView(cheque: cheque),
+                        builder: (_) => ChequeEditView(cheque: chequeValue),
                       ),
                     );
                   },
@@ -101,17 +102,17 @@ class _ChequeDetailViewState extends State<ChequeDetailView> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
-                  Text('Cheque No: ${cheque.chequeNumber}'),
-                  Text('Amount: Rs ${cheque.amount.toStringAsFixed(2)}'),
+                  Text('Cheque No: ${chequeValue.chequeNumber}'),
+                  Text('Amount: Rs ${chequeValue.amount.toStringAsFixed(2)}'),
                   Text(
-                    'Date: ${cheque.date.toLocal().toString().split(' ').first}',
+                    'Date: ${chequeValue.date.toLocal().toString().split(' ').first}',
                   ),
-                  Text('Status: ${cheque.status.name}'),
+                  Text('Status: ${chequeValue.status.name}'),
                   const SizedBox(height: 16),
-                  if (cheque.status != ChequeStatus.cashed)
+                  if (chequeValue.status != ChequeStatus.cashed)
                     ElevatedButton(
                       onPressed: () {
-                        controller.markAsCashed(cheque.id);
+                        controller.markAsCashed(chequeValue.id);
                         Navigator.pop(context);
                       },
                       child: const Text('Mark as Cashed'),
