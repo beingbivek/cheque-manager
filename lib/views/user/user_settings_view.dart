@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
+import '../../routes/app_routes.dart';
 
 class UserSettingsView extends StatefulWidget {
   const UserSettingsView({super.key});
@@ -113,6 +114,14 @@ class _UserSettingsViewState extends State<UserSettingsView> {
                 child: _saving
                     ? const CircularProgressIndicator()
                     : const Text('Save settings'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
+                child: const Text('Edit Profile'),
               ),
             ),
             const SizedBox(height: 12),

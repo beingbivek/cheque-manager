@@ -25,6 +25,7 @@ class AuthService {
           uid: firebaseUser.uid,
           email: firebaseUser.email ?? '',
           displayName: firebaseUser.displayName,
+          phone: firebaseUser.phoneNumber,
           role: 'user',
           tier: UserTier.free,
           status: UserStatus.active,
