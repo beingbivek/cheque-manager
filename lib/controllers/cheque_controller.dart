@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/user.dart';
@@ -20,12 +22,16 @@ class ChequeController extends ChangeNotifier {
   List<Party> _parties = [];
   AppError? _lastError;
   bool _isLoading = false;
+  Timer? _refreshTimer;
 
   void setUser(User? user) {
     _user = user;
     if (user != null) {
+      _nearThresholdDays = user.notificationLeadDays;
+      _startAutoRefresh();
       loadData();
     } else {
+      _stopAutoRefresh();
       _cheques = [];
       _parties = [];
       _lastError = null;
@@ -86,10 +92,44 @@ class ChequeController extends ChangeNotifier {
     _setLoading(true);
     try {
       _lastError = null;
+      _nearThresholdDays = _user?.notificationLeadDays ?? _nearThresholdDays;
       _parties = await _partyService.getPartiesForUser(_user!.uid);
       _cheques = await _chequeService.getChequesForUser(_user!.uid);
 
       // auto adjust statuses based on current date
+      await refreshStatuses();
+    } on AppError catch (e) {
+      _lastError = e;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> updateNotificationLeadDays(int days) async {
+    if (_user == null) return;
+    _setLoading(true);
+    try {
+      _lastError = null;
+      await _userService.updateNotificationLeadDays(
+        userId: _user!.uid,
+        leadDays: days,
+      );
+      _nearThresholdDays = days;
+
+      for (final cheque in _cheques) {
+        if (cheque.status == ChequeStatus.cashed) continue;
+        await _chequeService.updateNotificationSent(
+          chequeId: cheque.id,
+          notificationSent: false,
+        );
+      }
+
+      _cheques = _cheques
+          .map((cheque) => cheque.status == ChequeStatus.cashed
+              ? cheque
+              : cheque.copyWith(notificationSent: false))
+          .toList();
+
       await refreshStatuses();
     } on AppError catch (e) {
       _lastError = e;
@@ -180,6 +220,116 @@ class ChequeController extends ChangeNotifier {
     }
   }
 
+  Future<void> addParty({
+    required String name,
+    String? phone,
+    String? notes,
+  }) async {
+    if (_user == null) {
+      _lastError = AppError(code: 'NO_USER', message: 'User not logged in.');
+      notifyListeners();
+      return;
+    }
+
+    _setLoading(true);
+    try {
+      _lastError = null;
+      final existing = await _partyService.findByName(
+        userId: _user!.uid,
+        name: name,
+      );
+      if (existing != null) {
+        throw AppError(
+          code: 'PARTY_EXISTS',
+          message: 'Party already exists.',
+        );
+      }
+      final created = await _partyService.createParty(
+        userId: _user!.uid,
+        name: name,
+      );
+      final updated = created.copyWith(
+        phone: phone,
+        notes: notes,
+        updatedAt: DateTime.now(),
+      );
+      if (phone != null || notes != null) {
+        await _partyService.updateParty(
+          partyId: updated.id,
+          updates: {
+            'phone': phone,
+            'notes': notes,
+            'updatedAt': DateTime.now(),
+          },
+        );
+      }
+      _parties = [..._parties, updated];
+      notifyListeners();
+    } on AppError catch (e) {
+      _lastError = e;
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> updateParty({
+    required String partyId,
+    required String name,
+    String? phone,
+    String? notes,
+    required PartyStatus status,
+  }) async {
+    final index = _parties.indexWhere((p) => p.id == partyId);
+    if (index == -1) {
+      _lastError = AppError(
+        code: 'PARTY_NOT_FOUND',
+        message: 'Party not found.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    _setLoading(true);
+    final current = _parties[index];
+    final updated = Party(
+      id: current.id,
+      userId: current.userId,
+      name: name,
+      phone: phone,
+      notes: notes,
+      status: status,
+      createdAt: current.createdAt,
+      updatedAt: DateTime.now(),
+    );
+
+    final optimistic = List<Party>.from(_parties);
+    optimistic[index] = updated;
+    _parties = optimistic;
+    notifyListeners();
+
+    try {
+      await _partyService.updateParty(
+        partyId: partyId,
+        updates: {
+          'name': name,
+          'phone': phone,
+          'notes': notes,
+          'status': status.name,
+          'updatedAt': DateTime.now(),
+        },
+      );
+    } on AppError catch (e) {
+      final reverted = List<Party>.from(_parties);
+      reverted[index] = current;
+      _parties = reverted;
+      _lastError = e;
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> refreshStatuses() async {
     if (_user == null) return;
     _setLoading(true);
@@ -236,6 +386,23 @@ class ChequeController extends ChangeNotifier {
     }
   }
 
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      const Duration(hours: 6),
+      (_) {
+        if (_user != null) {
+          refreshStatuses();
+        }
+      },
+    );
+  }
+
+  void _stopAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
   Future<void> markAsCashed(String chequeId) async {
     await updateChequeStatus(
       chequeId: chequeId,
@@ -283,6 +450,67 @@ class ChequeController extends ChangeNotifier {
       );
       _lastError = null;
       notifyListeners();
+    } on AppError catch (e) {
+      final reverted = List<Cheque>.from(_cheques);
+      reverted[index] = current;
+      _cheques = reverted;
+      _lastError = e;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateCheque({
+    required String chequeId,
+    required String partyName,
+    required String chequeNumber,
+    required double amount,
+    required DateTime date,
+    required ChequeStatus status,
+  }) async {
+    final index = _cheques.indexWhere((c) => c.id == chequeId);
+    if (index == -1) {
+      _lastError = AppError(
+        code: 'CHEQUE_NOT_FOUND',
+        message: 'Cheque not found.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    final current = _cheques[index];
+    final now = DateTime.now();
+    final recalculatedStatus =
+        status == ChequeStatus.cashed ? status : _calculateStatus(date, cashed: false);
+    final updatedCheque = current.copyWith(
+      partyName: partyName,
+      chequeNumber: chequeNumber,
+      amount: amount,
+      date: date,
+      status: recalculatedStatus,
+      notificationSent: false,
+      updatedAt: now,
+    );
+
+    final optimistic = List<Cheque>.from(_cheques);
+    optimistic[index] = updatedCheque;
+    _cheques = optimistic;
+    _lastError = null;
+    notifyListeners();
+
+    try {
+      await _chequeService.updateCheque(
+        chequeId: chequeId,
+        updates: {
+          'partyName': partyName,
+          'chequeNumber': chequeNumber,
+          'amount': amount,
+          'date': date,
+          'status': recalculatedStatus.name,
+          'notificationSent': false,
+          'updatedAt': now,
+        },
+      );
+      await refreshStatuses();
     } on AppError catch (e) {
       final reverted = List<Cheque>.from(_cheques);
       reverted[index] = current;
@@ -358,5 +586,11 @@ class ChequeController extends ChangeNotifier {
   void clearError() {
     _lastError = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _stopAutoRefresh();
+    super.dispose();
   }
 }

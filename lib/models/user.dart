@@ -13,6 +13,7 @@ class User {
   final UserStatus status;
   final int partyCount;
   final int chequeCount;
+  final int notificationLeadDays;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -25,6 +26,7 @@ class User {
     required this.status,
     required this.partyCount,
     required this.chequeCount,
+    required this.notificationLeadDays,
     this.createdAt,
     this.updatedAt,
   });
@@ -48,6 +50,7 @@ class User {
       status: _statusFromString(data['status'] ?? 'active'),
       partyCount: (data['partyCount'] ?? 0) as int,
       chequeCount: (data['chequeCount'] ?? 0) as int,
+      notificationLeadDays: (data['notificationLeadDays'] ?? 3) as int,
       createdAt: _toDate(data['createdAt']),
       updatedAt: _toDate(data['updatedAt']),
     );
@@ -62,6 +65,7 @@ class User {
       'status': status.name,
       'partyCount': partyCount,
       'chequeCount': chequeCount,
+      'notificationLeadDays': notificationLeadDays,
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
