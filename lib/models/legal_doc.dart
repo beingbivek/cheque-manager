@@ -5,6 +5,8 @@ class LegalDoc {
   final String docType;
   final String title;
   final String content;
+  final int version;
+  final DateTime? publishedAt;
   final DateTime? updatedAt;
 
   LegalDoc({
@@ -12,6 +14,8 @@ class LegalDoc {
     required this.docType,
     required this.title,
     required this.content,
+    required this.version,
+    required this.publishedAt,
     required this.updatedAt,
   });
 
@@ -28,6 +32,8 @@ class LegalDoc {
       docType: data['type'] ?? 'document',
       title: data['title'] ?? 'Untitled',
       content: data['content'] ?? '',
+      version: (data['version'] ?? 1) as int,
+      publishedAt: _toDate(data['publishedAt']),
       updatedAt: _toDate(data['updatedAt']),
     );
   }

@@ -74,4 +74,42 @@ class UserService {
       );
     }
   }
+
+  Future<void> updateProfile({
+    required String userId,
+    required String displayName,
+    required String phone,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'displayName': displayName,
+        'phone': phone,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update profile.',
+        original: e,
+      );
+    }
+  }
+
+  Future<void> updateNotificationLeadDays({
+    required String userId,
+    required int leadDays,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'notificationLeadDays': leadDays,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update notification settings.',
+        original: e,
+      );
+    }
+  }
 }
