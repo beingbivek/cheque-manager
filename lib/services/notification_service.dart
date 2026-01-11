@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,13 +21,25 @@ class NotificationService {
   static const String _pendingPayloadKey = 'pending_notification_payload';
 
   String? _pendingChequeId;
+  bool _webNotificationsSupported = true;
 
   Future<void> init() async {
     const AndroidInitializationSettings androidInit =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initSettings =
-        InitializationSettings(android: androidInit);
+    const DarwinInitializationSettings darwinInit =
+        DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
+        );
+
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: darwinInit,
+      macOS: darwinInit,
+      web: WebInitializationSettings(),
+    );
 
     await _plugin.initialize(
       initSettings,
@@ -51,6 +64,31 @@ class NotificationService {
       _pendingChequeId = _payloadToChequeId(payload);
       await _persistPayload(payload);
     }
+
+    if (kIsWeb) {
+      final webImpl =
+          _plugin.resolvePlatformSpecificImplementation<
+              WebFlutterLocalNotificationsPlugin>();
+      if (webImpl == null) {
+        _webNotificationsSupported = false;
+        debugPrint(
+          'Web notifications are not supported. Consider enabling Firebase Messaging for web.',
+        );
+      } else {
+        final granted = await webImpl.requestPermission();
+        _webNotificationsSupported = granted ?? false;
+      }
+      return;
+    }
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       _channelId,
@@ -136,6 +174,9 @@ class NotificationService {
     required Cheque cheque,
     required String partyName,
   }) async {
+    if (kIsWeb && !_webNotificationsSupported) {
+      return;
+    }
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
       _channelId,
@@ -145,8 +186,18 @@ class NotificationService {
       importance: Importance.high,
     );
 
-    const NotificationDetails details =
-        NotificationDetails(android: androidDetails);
+    const DarwinNotificationDetails darwinDetails =
+        DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+      iOS: darwinDetails,
+      macOS: darwinDetails,
+    );
 
     await _plugin.show(
       cheque.hashCode,
@@ -163,6 +214,9 @@ class NotificationService {
     required int leadDays,
     int? notificationId,
   }) async {
+    if (kIsWeb && !_webNotificationsSupported) {
+      return null;
+    }
     final scheduledDate = DateTime(
       cheque.date.year,
       cheque.date.month,
@@ -182,8 +236,18 @@ class NotificationService {
       importance: Importance.high,
     );
 
-    const NotificationDetails details =
-        NotificationDetails(android: androidDetails);
+    const DarwinNotificationDetails darwinDetails =
+        DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+      iOS: darwinDetails,
+      macOS: darwinDetails,
+    );
 
     final id = notificationId ?? _generateNotificationId(cheque.id);
 
