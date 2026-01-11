@@ -95,4 +95,32 @@ class PartyService {
       );
     }
   }
+
+  Future<void> updateParty({
+    required String partyId,
+    required Map<String, dynamic> updates,
+  }) async {
+    try {
+      await _collection.doc(partyId).update(updates);
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update party.',
+        original: e,
+      );
+    }
+  }
+
+  Future<void> updatePartyStatus({
+    required String partyId,
+    required PartyStatus status,
+  }) async {
+    await updateParty(
+      partyId: partyId,
+      updates: {
+        'status': status.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+  }
 }

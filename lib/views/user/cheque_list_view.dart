@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'upgrade_banner.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../controllers/auth_controller.dart';
 import '../../controllers/cheque_controller.dart';
 import '../../models/app_error.dart';
 import '../../models/cheque.dart';
@@ -33,6 +35,37 @@ class _ChequeListViewState extends State<ChequeListView> {
     });
   }
 
+  void _exportCheques() {
+    final controller = context.read<ChequeController>();
+    final filtered = controller.cheques.where((c) {
+      if (_searchQuery.isEmpty) return true;
+      final partyName = controller.displayPartyName(c).toLowerCase();
+      return partyName.contains(_searchQuery);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No cheques to export.')),
+      );
+      return;
+    }
+
+    final buffer = StringBuffer()
+      ..writeln('partyName,chequeNumber,amount,date,status');
+    for (final cheque in filtered) {
+      final partyName = controller.displayPartyName(cheque);
+      final date = cheque.date.toLocal().toString().split(' ').first;
+      buffer.writeln(
+        '$partyName,${cheque.chequeNumber},${cheque.amount.toStringAsFixed(2)},'
+        '$date,${cheque.status.name}',
+      );
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cheques copied as CSV.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ChequeController>();
@@ -53,14 +86,74 @@ class _ChequeListViewState extends State<ChequeListView> {
           ),
           actions: [
             IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/settings'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.support_agent),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/tickets'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.notifications),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/notifications'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.groups),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/parties'),
+            ),
+            IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => controller.refreshStatuses(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: _exportCheques,
             ),
           ],
         ),
         body: Column(
           children: [
             const UpgradeBanner(),
+            _UsageSummary(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _QuickAction(
+                        label: 'Settings',
+                        icon: Icons.settings,
+                        onTap: () => Navigator.pushNamed(context, '/settings'),
+                      ),
+                      _QuickAction(
+                        label: 'Notifications',
+                        icon: Icons.notifications,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/notifications'),
+                      ),
+                      _QuickAction(
+                        label: 'Tickets',
+                        icon: Icons.support_agent,
+                        onTap: () => Navigator.pushNamed(context, '/tickets'),
+                      ),
+                      _QuickAction(
+                        label: 'Parties',
+                        icon: Icons.groups,
+                        onTap: () => Navigator.pushNamed(context, '/parties'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             if (controller.lastError != null)
               _ErrorBanner(error: controller.lastError!),
             Padding(
@@ -74,6 +167,32 @@ class _ChequeListViewState extends State<ChequeListView> {
                 onChanged: _onSearchChanged,
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _SummaryChip(
+                    label: 'Cashed',
+                    count: sections[ChequeStatus.cashed]?.length ?? 0,
+                  ),
+                  _SummaryChip(
+                    label: 'Near',
+                    count: sections[ChequeStatus.near]?.length ?? 0,
+                  ),
+                  _SummaryChip(
+                    label: 'Valid',
+                    count: sections[ChequeStatus.valid]?.length ?? 0,
+                  ),
+                  _SummaryChip(
+                    label: 'Expired',
+                    count: sections[ChequeStatus.expired]?.length ?? 0,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
             Expanded(
               child: controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -107,6 +226,42 @@ class _ChequeListViewState extends State<ChequeListView> {
             );
           },
           child: const Icon(Icons.add),
+        ),
+      ),
+    );
+  }
+}
+
+class _UsageSummary extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthController>().currentUser;
+    if (user == null) return const SizedBox.shrink();
+    final maxParties = user.isPro ? 50 : 5;
+    final maxCheques = user.isPro ? 50 : 5;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Plan: ${user.isPro ? 'Pro' : 'Free'}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                'Parties: ${user.partyCount}/$maxParties',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                'Cheques: ${user.chequeCount}/$maxCheques',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -152,8 +307,53 @@ class _ChequeList extends StatelessWidget {
             onPressed: () =>
                 controller.markAsCashed(c.id),
           ),
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              '/cheque-details',
+              arguments: c.id,
+            );
+          },
         );
       },
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  final String label;
+  final int count;
+
+  const _SummaryChip({required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text('$label: $count'),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuickAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon),
+        label: Text(label),
+      ),
     );
   }
 }
