@@ -20,6 +20,7 @@ class AuthService {
     try {
       final doc = _repository.users.doc(firebaseUser.uid);
       final snapshot = await doc.get();
+      final hasAdminClaim = await _hasAdminClaim(firebaseUser);
 
       if (!snapshot.exists) {
         final now = DateTime.now();
@@ -28,7 +29,7 @@ class AuthService {
           email: firebaseUser.email ?? '',
           displayName: firebaseUser.displayName,
           phone: firebaseUser.phoneNumber,
-          role: 'user',
+          role: hasAdminClaim ? 'admin' : 'user',
           tier: UserTier.free,
           status: UserStatus.active,
           partyCount: 0,
@@ -40,7 +41,13 @@ class AuthService {
         await doc.set(newUser.toMap());
         return newUser;
       } else {
-        return User.fromMap(snapshot.id, snapshot.data()!);
+        final existingUser = User.fromMap(snapshot.id, snapshot.data()!);
+        if (hasAdminClaim && existingUser.role != 'admin') {
+          final now = DateTime.now();
+          await doc.update({'role': 'admin', 'updatedAt': now});
+          return existingUser.copyWith(role: 'admin', updatedAt: now);
+        }
+        return existingUser;
       }
     } on FirebaseException catch (e) {
       // Firestore-specific error -> wrap in AppError with a clear code
@@ -56,6 +63,11 @@ class AuthService {
         original: e,
       );
     }
+  }
+
+  Future<bool> _hasAdminClaim(firebase_auth.User firebaseUser) async {
+    final token = await firebaseUser.getIdTokenResult();
+    return token.claims?['admin'] == true;
   }
 
   Future<User> registerWithEmail(String email, String password) async {

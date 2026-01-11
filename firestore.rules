@@ -26,7 +26,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && hasUserProfile() && userData().role == 'admin';
+      return isSignedIn()
+        && (request.auth.token.admin == true
+          || (hasUserProfile() && userData().role == 'admin'));
     }
 
     function maxParties() {
@@ -130,28 +132,29 @@ service cloud.firestore {
     match /tickets/{ticketId} {
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.status == 'open'
-        && request.resource.data.keys().hasAll([
-          'userId',
-          'title',
-          'message',
-          'status',
-          'createdAt',
-          'updatedAt'
-        ]);
+      allow create: if isAdmin()
+        || (isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.status == 'open'
+          && request.resource.data.keys().hasAll([
+            'userId',
+            'title',
+            'message',
+            'status',
+            'createdAt',
+            'updatedAt'
+          ]));
       allow update, delete: if isAdmin()
         || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /admin_notifications/{notificationId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || isAdmin();
       allow create, update, delete: if isAdmin();
     }
 
     match /legal_docs/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || isAdmin();
       allow create, update, delete: if isAdmin();
     }
   }
