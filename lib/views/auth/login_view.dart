@@ -100,6 +100,13 @@ class _LoginViewState extends State<LoginView> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.register);
+              },
+              child: const Text('Create account'),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: () {
                 Navigator.pushNamed(context, AppRoutes.termsPrivacy);
               },
               child: const Text('Terms & Privacy'),

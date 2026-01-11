@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../views/auth/splash_view.dart';
 import '../views/auth/login_view.dart';
+import '../views/auth/register_view.dart';
 import '../views/user/user_dashboard_view.dart';
 import '../views/admin/admin_dashboard_view.dart';
 import '../views/common/error_404_view.dart';
@@ -20,6 +21,7 @@ import '../models/app_error.dart';
 class AppRoutes {
   static const splash = '/';
   static const login = '/login';
+  static const register = '/register';
   static const userDashboard = '/user-dashboard';
   static const adminDashboard = '/admin-dashboard';
   static const chequeDetails = '/cheque-details';
@@ -37,6 +39,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const SplashView());
       case login:
         return MaterialPageRoute(builder: (_) => const LoginView());
+      case register:
+        return MaterialPageRoute(builder: (_) => const RegisterView());
       case userDashboard:
         return MaterialPageRoute(builder: (_) => const UserDashboardView());
       case adminDashboard:
