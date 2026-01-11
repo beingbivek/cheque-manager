@@ -29,10 +29,11 @@ class _LoginViewState extends State<LoginView> {
         final user = auth.currentUser!;
         if (user.role == 'admin') {
           NotificationService.instance.clearPendingPayload();
+          NotificationService.instance.clearPendingRoute();
           Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
         } else {
           Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
-          _openPendingChequeDetail();
+          _openPendingNotificationRoute();
         }
       }
     });
@@ -110,15 +111,23 @@ class _LoginViewState extends State<LoginView> {
   }
 }
 
-void _openPendingChequeDetail() {
+void _openPendingNotificationRoute() {
   Future.delayed(const Duration(milliseconds: 300), () async {
-    final chequeId = await NotificationService.instance.consumePendingChequeId();
-    if (chequeId == null) return;
-    final navState = NavigationService.navigatorKey.currentState;
-    navState?.pushNamed(
-      AppRoutes.chequeDetails,
-      arguments: chequeId,
-    );
+    final notificationService = NotificationService.instance;
+    final pendingRoute = await notificationService.consumePendingRoute();
+    if (pendingRoute != null) {
+      final navState = NavigationService.navigatorKey.currentState;
+      navState?.pushNamed(pendingRoute);
+      return;
+    }
+    final chequeId = await notificationService.consumePendingChequeId();
+    if (chequeId != null) {
+      final navState = NavigationService.navigatorKey.currentState;
+      navState?.pushNamed(
+        AppRoutes.chequeDetails,
+        arguments: chequeId,
+      );
+    }
   });
 }
 

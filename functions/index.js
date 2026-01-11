@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const axios = require("axios");
 const dotenv = require("dotenv");
@@ -73,3 +74,66 @@ exports.verifyKhaltiAndUpgrade = onCall(async (request) => {
 
   return { ok: true, plan: "pro", planExpiry: expiry.toDate().toISOString() };
 });
+
+exports.sendAdminNotification = onDocumentCreated(
+  "admin_notifications/{notificationId}",
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) {
+      console.log("No admin notification data.");
+      return;
+    }
+
+    const data = snapshot.data();
+    const title = data?.title || "Notification";
+    const body = data?.message || "";
+
+    const tokensSnapshot = await admin
+      .firestore()
+      .collectionGroup("tokens")
+      .get();
+
+    if (tokensSnapshot.empty) {
+      console.log("No FCM tokens found.");
+      return;
+    }
+
+    const tokens = tokensSnapshot.docs.map((doc) => doc.id);
+    const chunks = [];
+    for (let i = 0; i < tokens.length; i += 500) {
+      chunks.push(tokens.slice(i, i + 500));
+    }
+
+    for (const chunk of chunks) {
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens: chunk,
+        notification: { title, body },
+        data: {
+          route: "/notifications",
+          notificationId: event.params.notificationId,
+        },
+      });
+
+      if (response.failureCount > 0) {
+        const deletions = [];
+        response.responses.forEach((res, idx) => {
+          if (!res.success) {
+            const errorCode = res.error?.code;
+            if (errorCode === "messaging/registration-token-not-registered") {
+              const token = chunk[idx];
+              const tokenDocs = tokensSnapshot.docs.filter(
+                (doc) => doc.id === token
+              );
+              tokenDocs.forEach((doc) => {
+                deletions.push(doc.ref.delete());
+              });
+            }
+          }
+        });
+        if (deletions.length > 0) {
+          await Promise.all(deletions);
+        }
+      }
+    }
+  }
+);
