@@ -8,6 +8,7 @@ class User {
   final String uid;
   final String email;
   final String? displayName;
+  final String? phone;
   final String role;
   final UserTier tier;
   final UserStatus status;
@@ -21,6 +22,7 @@ class User {
     required this.uid,
     required this.email,
     this.displayName,
+    this.phone,
     required this.role,
     required this.tier,
     required this.status,
@@ -45,6 +47,7 @@ class User {
       uid: id,
       email: data['email'] ?? '',
       displayName: data['displayName'],
+      phone: data['phone'],
       role: data['role'] ?? 'user',
       tier: _tierFromString(data['tier'] ?? 'free'),
       status: _statusFromString(data['status'] ?? 'active'),
@@ -60,6 +63,7 @@ class User {
     return {
       'email': email,
       'displayName': displayName,
+      'phone': phone,
       'role': role,
       'tier': tier.name,
       'status': status.name,
@@ -75,6 +79,7 @@ class User {
     String? uid,
     String? email,
     String? displayName,
+    String? phone,
     String? role,
     UserTier? tier,
     UserStatus? status,
@@ -88,6 +93,7 @@ class User {
       uid: uid ?? this.uid,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
+      phone: phone ?? this.phone,
       role: role ?? this.role,
       tier: tier ?? this.tier,
       status: status ?? this.status,

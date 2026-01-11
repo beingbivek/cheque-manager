@@ -92,4 +92,24 @@ class UserService {
       );
     }
   }
+
+  Future<void> updateProfile({
+    required String userId,
+    String? displayName,
+    String? phone,
+  }) async {
+    try {
+      await _repository.users.doc(userId).update({
+        'displayName': displayName,
+        'phone': phone,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppError(
+        code: 'FIRESTORE_${e.code.toUpperCase()}',
+        message: 'Failed to update profile details.',
+        original: e,
+      );
+    }
+  }
 }
