@@ -23,6 +23,9 @@ class ChequeListView extends StatefulWidget {
 class _ChequeListViewState extends State<ChequeListView> {
   String _searchQuery = '';
   Timer? _searchDebounce;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _exportCurrentTab = true;
 
   @override
   void dispose() {
@@ -37,17 +40,85 @@ class _ChequeListViewState extends State<ChequeListView> {
     });
   }
 
+  DateTime _startOfDay(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  DateTime _endOfDay(DateTime value) {
+    return DateTime(value.year, value.month, value.day, 23, 59, 59, 999);
+  }
+
+  bool _matchesDateRange(Cheque cheque) {
+    final localDate = cheque.date.toLocal();
+    if (_startDate != null && localDate.isBefore(_startOfDay(_startDate!))) {
+      return false;
+    }
+    if (_endDate != null && localDate.isAfter(_endOfDay(_endDate!))) {
+      return false;
+    }
+    return true;
+  }
+
+  String _formatDate(DateTime date) {
+    return date.toLocal().toString().split(' ').first;
+  }
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 10),
+    );
+    if (picked == null) return;
+    setState(() {
+      _startDate = picked;
+      if (_endDate != null && _endDate!.isBefore(picked)) {
+        _endDate = picked;
+      }
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 10),
+    );
+    if (picked == null) return;
+    setState(() {
+      _endDate = picked;
+      if (_startDate != null && _startDate!.isAfter(picked)) {
+        _startDate = picked;
+      }
+    });
+  }
+
   void _exportCheques() {
     final controller = context.read<ChequeController>();
-    final filtered = controller.cheques.where((c) {
+    final tabController = DefaultTabController.of(context);
+    final statuses = const [
+      ChequeStatus.cashed,
+      ChequeStatus.near,
+      ChequeStatus.valid,
+      ChequeStatus.expired,
+    ];
+    final selectedStatus = statuses[tabController?.index ?? 0];
+    final sourceCheques = _exportCurrentTab
+        ? controller.chequeSections[selectedStatus] ?? []
+        : controller.cheques;
+    final filtered = sourceCheques.where((c) {
       if (_searchQuery.isEmpty) return true;
       final partyName = controller.displayPartyName(c).toLowerCase();
       return partyName.contains(_searchQuery);
-    }).toList();
+    }).where(_matchesDateRange).toList();
 
     if (filtered.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No cheques to export.')),
+        const SnackBar(content: Text('No matching cheques to export.')),
       );
       return;
     }
@@ -56,7 +127,7 @@ class _ChequeListViewState extends State<ChequeListView> {
       ..writeln('partyName,chequeNumber,amount,date,status');
     for (final cheque in filtered) {
       final partyName = controller.displayPartyName(cheque);
-      final date = cheque.date.toLocal().toString().split(' ').first;
+      final date = _formatDate(cheque.date);
       buffer.writeln(
         '$partyName,${cheque.chequeNumber},${cheque.amount.toStringAsFixed(2)},'
         '$date,${cheque.status.name}',
@@ -171,6 +242,74 @@ class _ChequeListViewState extends State<ChequeListView> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Date range',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _pickStartDate,
+                              icon: const Icon(Icons.date_range),
+                              label: Text(
+                                _startDate == null
+                                    ? 'Start date'
+                                    : _formatDate(_startDate!),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _pickEndDate,
+                              icon: const Icon(Icons.event),
+                              label: Text(
+                                _endDate == null
+                                    ? 'End date'
+                                    : _formatDate(_endDate!),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: (_startDate == null && _endDate == null)
+                              ? null
+                              : () => setState(() {
+                                    _startDate = null;
+                                    _endDate = null;
+                                  }),
+                          icon: const Icon(Icons.clear),
+                          label: const Text('Clear dates'),
+                        ),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Export current tab'),
+                        subtitle: const Text(
+                          'Only export cheques from the selected status tab.',
+                        ),
+                        value: _exportCurrentTab,
+                        onChanged: (value) =>
+                            setState(() => _exportCurrentTab = value),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -203,18 +342,26 @@ class _ChequeListViewState extends State<ChequeListView> {
                   _ChequeList(
                     cheques: sections[ChequeStatus.cashed] ?? [],
                     searchQuery: _searchQuery,
+                    startDate: _startDate,
+                    endDate: _endDate,
                   ),
                   _ChequeList(
                     cheques: sections[ChequeStatus.near] ?? [],
                     searchQuery: _searchQuery,
+                    startDate: _startDate,
+                    endDate: _endDate,
                   ),
                   _ChequeList(
                     cheques: sections[ChequeStatus.valid] ?? [],
                     searchQuery: _searchQuery,
+                    startDate: _startDate,
+                    endDate: _endDate,
                   ),
                   _ChequeList(
                     cheques: sections[ChequeStatus.expired] ?? [],
                     searchQuery: _searchQuery,
+                    startDate: _startDate,
+                    endDate: _endDate,
                   ),
                 ],
               ),
@@ -273,11 +420,34 @@ class _UsageSummary extends StatelessWidget {
 class _ChequeList extends StatelessWidget {
   final List<Cheque> cheques;
   final String searchQuery;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const _ChequeList({
     required this.cheques,
     required this.searchQuery,
+    required this.startDate,
+    required this.endDate,
   });
+
+  DateTime _startOfDay(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  DateTime _endOfDay(DateTime value) {
+    return DateTime(value.year, value.month, value.day, 23, 59, 59, 999);
+  }
+
+  bool _matchesDateRange(Cheque cheque) {
+    final localDate = cheque.date.toLocal();
+    if (startDate != null && localDate.isBefore(_startOfDay(startDate!))) {
+      return false;
+    }
+    if (endDate != null && localDate.isAfter(_endOfDay(endDate!))) {
+      return false;
+    }
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -287,10 +457,10 @@ class _ChequeList extends StatelessWidget {
       if (searchQuery.isEmpty) return true;
       final partyName = controller.displayPartyName(c).toLowerCase();
       return partyName.contains(searchQuery);
-    }).toList();
+    }).where(_matchesDateRange).toList();
 
     if (filtered.isEmpty) {
-      return const Center(child: Text('No cheques.'));
+      return const Center(child: Text('No matching cheques.'));
     }
 
     return ListView.builder(
