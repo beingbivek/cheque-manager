@@ -129,10 +129,9 @@ class _TicketsTabState extends State<TicketsTab> {
         return false;
       }
       if (query.isEmpty) return true;
-      return ticket.subject.toLowerCase().contains(query) ||
-          ticket.description.toLowerCase().contains(query) ||
-          ticket.userId.toLowerCase().contains(query) ||
-          ticket.requesterEmail.toLowerCase().contains(query);
+      return ticket.title.toLowerCase().contains(query) ||
+          ticket.message.toLowerCase().contains(query) ||
+          ticket.userId.toLowerCase().contains(query);
     }).toList();
   }
 }
@@ -271,10 +270,8 @@ class _TicketTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.read<AdminController>();
     final subtitle = [
-      if (ticket.requesterEmail.isNotEmpty) ticket.requesterEmail,
       if (ticket.userId.isNotEmpty) 'User: ${ticket.userId}',
-      'Priority: ${ticket.priority}',
-      'Category: ${ticket.category}',
+      'Status: ${_statusLabel(ticket.status)}',
     ].join(' · ');
 
     if (ticket.id.isEmpty) {
@@ -292,7 +289,7 @@ class _TicketTile extends StatelessWidget {
     }
 
     return ListTile(
-      title: Text(ticket.subject),
+      title: Text(ticket.title),
       subtitle: Text(subtitle),
       trailing: Wrap(
         spacing: 12,
@@ -376,12 +373,10 @@ String _statusLabel(TicketStatus status) {
   switch (status) {
     case TicketStatus.open:
       return 'Open';
-    case TicketStatus.pending:
-      return 'Pending';
+    case TicketStatus.inProgress:
+      return 'In Progress';
     case TicketStatus.resolved:
       return 'Resolved';
-    case TicketStatus.closed:
-      return 'Closed';
   }
 }
 
@@ -397,19 +392,14 @@ class TicketExport {
 
   static String toCsv(List<Ticket> tickets) {
     final buffer = StringBuffer();
-    buffer.writeln(
-      'id,userId,requesterEmail,subject,description,category,priority,status,createdAt,updatedAt',
-    );
+    buffer.writeln('id,userId,title,message,status,createdAt,updatedAt');
     for (final ticket in tickets) {
       buffer.writeln(
         [
           _escape(ticket.id),
           _escape(ticket.userId),
-          _escape(ticket.requesterEmail),
-          _escape(ticket.subject),
-          _escape(ticket.description),
-          _escape(ticket.category),
-          _escape(ticket.priority),
+          _escape(ticket.title),
+          _escape(ticket.message),
           _escape(ticket.status.name),
           _escape(ticket.createdAt?.toIso8601String() ?? ''),
           _escape(ticket.updatedAt?.toIso8601String() ?? ''),
@@ -423,11 +413,8 @@ class TicketExport {
     return {
       'id': ticket.id,
       'userId': ticket.userId,
-      'requesterEmail': ticket.requesterEmail,
-      'subject': ticket.subject,
-      'description': ticket.description,
-      'category': ticket.category,
-      'priority': ticket.priority,
+      'title': ticket.title,
+      'message': ticket.message,
       'status': ticket.status.name,
       'createdAt': ticket.createdAt?.toIso8601String(),
       'updatedAt': ticket.updatedAt?.toIso8601String(),

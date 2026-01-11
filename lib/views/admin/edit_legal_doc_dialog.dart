@@ -28,7 +28,7 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
     super.initState();
     _titleController = TextEditingController(text: widget.doc.title);
     _contentController = TextEditingController(text: widget.doc.content);
-    _versionController = TextEditingController(text: widget.doc.version);
+    _versionController = TextEditingController(text: widget.doc.version.toString());
     _isPublished = widget.doc.publishedAt != null;
   }
 
@@ -48,6 +48,13 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
     final controller = context.read<AdminController>();
 
     try {
+      final version = int.tryParse(_versionController.text.trim());
+      if (version == null) {
+        throw AppError(
+          code: 'LEGAL_DOC_VERSION_INVALID',
+          message: 'Version must be a number.',
+        );
+      }
       final publishedAt = _isPublished
           ? widget.doc.publishedAt ?? DateTime.now()
           : null;
@@ -55,7 +62,7 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
         docId: widget.doc.id,
         title: _titleController.text.trim(),
         content: _contentController.text.trim(),
-        version: _versionController.text.trim(),
+        version: version,
         publishedAt: publishedAt,
       );
       if (!mounted) return;
@@ -146,10 +153,15 @@ class _EditLegalDocDialogState extends State<EditLegalDocDialog> {
                   border: OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.next,
-                validator: (value) =>
-                    value == null || value.trim().isEmpty
-                        ? 'Version is required'
-                        : null,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Version is required';
+                  }
+                  if (int.tryParse(value.trim()) == null) {
+                    return 'Version must be a number';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               SwitchListTile(
