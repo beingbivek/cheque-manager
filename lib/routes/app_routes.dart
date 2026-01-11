@@ -14,6 +14,7 @@ import '../views/user/user_tickets_view.dart';
 import '../views/user/user_notifications_view.dart';
 import '../views/user/party_list_view.dart';
 import '../views/user/user_profile_view.dart';
+import '../models/app_error.dart';
 
 
 class AppRoutes {
@@ -43,10 +44,15 @@ class AppRoutes {
       case chequeDetails:
         final args = settings.arguments;
         if (args is! String || args.isEmpty) {
+          final error = AppError(
+            code: 'CHEQUE_ID_MISSING',
+            message: 'Missing cheque ID.',
+          );
           return MaterialPageRoute(
             builder: (context) => ErrorScreenView(
               title: 'Cheque unavailable',
               message: 'Missing cheque ID. Please try again.',
+              error: error,
               actionLabel: 'Go to Dashboard',
               onAction: () =>
                   Navigator.of(context).pushNamedAndRemoveUntil(

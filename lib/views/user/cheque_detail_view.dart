@@ -158,9 +158,14 @@ class _ChequeDetailViewState extends State<ChequeDetailView> {
     }
 
     if (widget.chequeId.isEmpty || cheque == null) {
+      final error = AppError(
+        code: 'CHEQUE_NOT_FOUND',
+        message: 'Missing or invalid cheque ID.',
+      );
       return ErrorScreenView(
         title: 'Cheque unavailable',
         message: 'This cheque could not be found. It may have been deleted.',
+        error: error,
         actionLabel: 'Go to Dashboard',
         onAction: () => Navigator.of(context).pushNamedAndRemoveUntil(
           AppRoutes.userDashboard,

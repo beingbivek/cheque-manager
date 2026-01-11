@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../models/app_error.dart';
+import 'app_error_banner.dart';
+
 class ErrorScreenView extends StatelessWidget {
   final String title;
   final String message;
+  final AppError? error;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -10,12 +14,24 @@ class ErrorScreenView extends StatelessWidget {
     super.key,
     required this.title,
     required this.message,
+    this.error,
     this.actionLabel,
     this.onAction,
   });
 
+  void _handleFallback(BuildContext context) {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
+    final fallbackLabel = canPop ? 'Go Back' : 'Go Home';
+
     return Scaffold(
       body: Center(
         child: Padding(
@@ -35,13 +51,26 @@ class ErrorScreenView extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
               ),
-              if (actionLabel != null && onAction != null) ...[
+              if (error != null) ...[
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: onAction,
-                  child: Text(actionLabel!),
-                ),
+                AppErrorBanner(error: error!),
               ],
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  if (actionLabel != null && onAction != null)
+                    ElevatedButton(
+                      onPressed: onAction,
+                      child: Text(actionLabel!),
+                    ),
+                  TextButton(
+                    onPressed: () => _handleFallback(context),
+                    child: Text(fallbackLabel),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
