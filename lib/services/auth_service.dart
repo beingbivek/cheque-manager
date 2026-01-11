@@ -124,8 +124,7 @@ class AuthService {
     try {
       if (kIsWeb) {
         final provider = firebase_auth.GoogleAuthProvider();
-        final result =
-            await firebase_auth.FirebaseAuth.instance.signInWithPopup(provider);
+        final result = await _auth.signInWithPopup(provider);
         final user = result.user;
         if (user == null) {
           throw AppError(
