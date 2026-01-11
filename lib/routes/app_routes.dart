@@ -35,17 +35,17 @@ class AppRoutes {
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
-      case splash:
+      case AppRoutes.splash:
         return MaterialPageRoute(builder: (_) => const SplashView());
-      case login:
+      case AppRoutes.login:
         return MaterialPageRoute(builder: (_) => const LoginView());
-      case register:
+      case AppRoutes.register:
         return MaterialPageRoute(builder: (_) => const RegisterView());
-      case userDashboard:
+      case AppRoutes.userDashboard:
         return MaterialPageRoute(builder: (_) => const UserDashboardView());
-      case adminDashboard:
+      case AppRoutes.adminDashboard:
         return MaterialPageRoute(builder: (_) => const AdminDashboardView());
-      case chequeDetails:
+      case AppRoutes.chequeDetails:
         final args = settings.arguments;
         if (args is! String || args.isEmpty) {
           final error = AppError(
@@ -60,7 +60,7 @@ class AppRoutes {
               actionLabel: 'Go to Dashboard',
               onAction: () =>
                   Navigator.of(context).pushNamedAndRemoveUntil(
-                userDashboard,
+                AppRoutes.userDashboard,
                 (route) => false,
               ),
             ),
@@ -69,17 +69,17 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) => ChequeDetailView(chequeId: args),
         );
-      case settings:
+      case AppRoutes.settings:
         return MaterialPageRoute(builder: (_) => const UserSettingsView());
-      case termsPrivacy:
+      case AppRoutes.termsPrivacy:
         return MaterialPageRoute(builder: (_) => const TermsPrivacyView());
-      case userTickets:
+      case AppRoutes.userTickets:
         return MaterialPageRoute(builder: (_) => const UserTicketsView());
-      case userNotifications:
+      case AppRoutes.userNotifications:
         return MaterialPageRoute(builder: (_) => const UserNotificationsView());
-      case parties:
+      case AppRoutes.parties:
         return MaterialPageRoute(builder: (_) => const PartyListView());
-      case profile:
+      case AppRoutes.profile:
         return MaterialPageRoute(builder: (_) => const UserProfileView());
       default:
         return MaterialPageRoute(builder: (_) => const Error404View());
