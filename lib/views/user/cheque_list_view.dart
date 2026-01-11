@@ -159,9 +159,13 @@ class _ChequeListViewState extends State<ChequeListView> {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () =>
-                  Navigator.pushNamed(context, '/settings'),
+              icon: const Icon(Icons.add),
+              tooltip: 'Add cheque',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChequeFormView()),
+                );
+              },
             ),
             IconButton(
               icon: const Icon(Icons.support_agent),
@@ -172,11 +176,6 @@ class _ChequeListViewState extends State<ChequeListView> {
               icon: const Icon(Icons.notifications),
               onPressed: () =>
                   Navigator.pushNamed(context, '/notifications'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.groups),
-              onPressed: () =>
-                  Navigator.pushNamed(context, '/parties'),
             ),
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -202,11 +201,6 @@ class _ChequeListViewState extends State<ChequeListView> {
                     runSpacing: 12,
                     children: [
                       _QuickAction(
-                        label: 'Settings',
-                        icon: Icons.settings,
-                        onTap: () => Navigator.pushNamed(context, '/settings'),
-                      ),
-                      _QuickAction(
                         label: 'Notifications',
                         icon: Icons.notifications,
                         onTap: () =>
@@ -216,11 +210,6 @@ class _ChequeListViewState extends State<ChequeListView> {
                         label: 'Tickets',
                         icon: Icons.support_agent,
                         onTap: () => Navigator.pushNamed(context, '/tickets'),
-                      ),
-                      _QuickAction(
-                        label: 'Parties',
-                        icon: Icons.groups,
-                        onTap: () => Navigator.pushNamed(context, '/parties'),
                       ),
                     ],
                   ),
@@ -367,14 +356,6 @@ class _ChequeListViewState extends State<ChequeListView> {
               ),
             ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ChequeFormView()),
-            );
-          },
-          child: const Icon(Icons.add),
         ),
       ),
     );
